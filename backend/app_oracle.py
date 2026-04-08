@@ -2,6 +2,10 @@ import oracledb
 import os
 import json
 import unicodedata
+import base64
+import zipfile
+import io
+import tempfile
 from flask import Flask, request, jsonify, g
 from flask_cors import CORS
 import bcrypt
@@ -14,10 +18,40 @@ CORS(app)
 def index():
     return app.send_static_file('index.html')
 
-ORACLE_USER = 'DIZIMO'
-ORACLE_PASS = 'Alinne05@ora'
-ORACLE_DSN = 'imaculado_high'
-WALLET_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'DriveOracle'))
+# --- Configuração Oracle ---
+# Lê de variáveis de ambiente (Render/Cloud) ou usa valores locais como fallback
+ORACLE_USER = os.environ.get('ORACLE_USER', 'DIZIMO')
+ORACLE_PASS = os.environ.get('ORACLE_PASS', 'Alinne05@ora')
+ORACLE_DSN  = os.environ.get('ORACLE_DSN',  'imaculado_high')
+WALLET_PASS = os.environ.get('WALLET_PASS', 'Alinne05@ora')
+
+# Localização da Wallet:
+# - Em produção (Render): extrai do env var WALLET_B64 (zip em base64)
+# - Local: usa pasta DriveOracle
+_wallet_tmp_dir = None
+
+def get_wallet_dir():
+    global _wallet_tmp_dir
+    wallet_b64 = os.environ.get('WALLET_B64')
+    if wallet_b64:
+        # Produção: extrai wallet de base64 para pasta temporária
+        if _wallet_tmp_dir is None:
+            try:
+                tmp = tempfile.mkdtemp(prefix='oracle_wallet_')
+                zip_bytes = base64.b64decode(wallet_b64)
+                with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+                    zf.extractall(tmp)
+                _wallet_tmp_dir = tmp
+                print(f'[Wallet] Extraida para: {tmp}')
+            except Exception as e:
+                print(f'[Wallet] ERRO ao extrair: {e}')
+                raise
+        return _wallet_tmp_dir
+    else:
+        # Local: usa pasta DriveOracle
+        return os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'DriveOracle'))
+
+WALLET_DIR = get_wallet_dir()
 
 class OracleWrapper:
     def __init__(self, conn):

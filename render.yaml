@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: dizimo-app
+    runtime: python
+    rootDir: .
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --chdir backend app_oracle:app --bind 0.0.0.0:$PORT
+    envVars:
+      - key: ORACLE_USER
+        value: DIZIMO
+      - key: ORACLE_DSN
+        value: imaculado_high
+      - key: ORACLE_PASS
+        sync: false   # preencha no painel do Render
+      - key: WALLET_B64
+        sync: false   # preencha no painel do Render com o conteudo de wallet_b64.txt
+      - key: WALLET_PASS
+        sync: false   # senha da wallet
