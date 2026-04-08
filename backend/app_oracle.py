@@ -18,6 +18,39 @@ CORS(app)
 def index():
     return app.send_static_file('index.html')
 
+@app.route('/health')
+def health():
+    """Rota de diagnóstico — mostra status da conexão Oracle no Render."""
+    info = {}
+    # Variáveis de ambiente
+    info['env_ORACLE_USER']  = os.environ.get('ORACLE_USER', '(nao definido)')
+    info['env_ORACLE_DSN']   = os.environ.get('ORACLE_DSN',  '(nao definido)')
+    info['env_ORACLE_PASS']  = '***' if os.environ.get('ORACLE_PASS') else '(nao definido)'
+    info['env_WALLET_B64']   = f'{len(os.environ.get("WALLET_B64",""))} chars' if os.environ.get('WALLET_B64') else '(nao definido - PROBLEMA!)'
+    info['env_WALLET_PASS']  = '***' if os.environ.get('WALLET_PASS') else '(nao definido)'
+
+    # Wallet dir
+    try:
+        wdir = get_wallet_dir()
+        info['wallet_dir'] = wdir
+        info['wallet_files'] = os.listdir(wdir) if os.path.isdir(wdir) else 'pasta nao existe!'
+    except Exception as e:
+        info['wallet_error'] = str(e)
+
+    # Teste de conexao
+    try:
+        wdir = get_wallet_dir()
+        conn = oracledb.connect(
+            user=ORACLE_USER, password=ORACLE_PASS, dsn=ORACLE_DSN,
+            config_dir=wdir, wallet_location=wdir, wallet_password=WALLET_PASS
+        )
+        conn.close()
+        info['db_status'] = 'CONECTADO OK'
+    except Exception as e:
+        info['db_status'] = f'ERRO: {type(e).__name__}: {e}'
+
+    return jsonify(info)
+
 # --- Configuração Oracle ---
 # Lê de variáveis de ambiente (Render/Cloud) ou usa valores locais como fallback
 ORACLE_USER = os.environ.get('ORACLE_USER', 'DIZIMO')
@@ -25,16 +58,17 @@ ORACLE_PASS = os.environ.get('ORACLE_PASS', 'Alinne05@ora')
 ORACLE_DSN  = os.environ.get('ORACLE_DSN',  'imaculado_high')
 WALLET_PASS = os.environ.get('WALLET_PASS', 'Alinne05@ora')
 
-# Localização da Wallet:
-# - Em produção (Render): extrai do env var WALLET_B64 (zip em base64)
-# - Local: usa pasta DriveOracle
+# Wallet resolvida de forma lazy na primeira conexão
 _wallet_tmp_dir = None
 
 def get_wallet_dir():
+    """Retorna o diretório da Wallet Oracle.
+    - Em produção (Render): extrai do env var WALLET_B64 (zip em base64)
+    - Local: usa pasta DriveOracle relativa ao arquivo
+    """
     global _wallet_tmp_dir
     wallet_b64 = os.environ.get('WALLET_B64')
     if wallet_b64:
-        # Produção: extrai wallet de base64 para pasta temporária
         if _wallet_tmp_dir is None:
             try:
                 tmp = tempfile.mkdtemp(prefix='oracle_wallet_')
@@ -42,16 +76,17 @@ def get_wallet_dir():
                 with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
                     zf.extractall(tmp)
                 _wallet_tmp_dir = tmp
-                print(f'[Wallet] Extraida para: {tmp}')
+                arquivos = os.listdir(tmp)
+                print(f'[Wallet] OK. Extraida para: {tmp}. Arquivos: {arquivos}')
             except Exception as e:
                 print(f'[Wallet] ERRO ao extrair: {e}')
                 raise
         return _wallet_tmp_dir
     else:
         # Local: usa pasta DriveOracle
-        return os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'DriveOracle'))
-
-WALLET_DIR = get_wallet_dir()
+        local = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'DriveOracle'))
+        print(f'[Wallet] Modo local: {local}')
+        return local
 
 class OracleWrapper:
     def __init__(self, conn):
@@ -88,24 +123,24 @@ def get_db():
     db = getattr(g, '_database', None)
     if db is None:
         try:
+            wallet_dir = get_wallet_dir()  # lazy: resolve no momento da conexao
+            print(f'[DB] Conectando. user={ORACLE_USER} dsn={ORACLE_DSN} wallet={wallet_dir}')
             connection = oracledb.connect(
                 user=ORACLE_USER,
                 password=ORACLE_PASS,
                 dsn=ORACLE_DSN,
-                config_dir=WALLET_DIR,
-                wallet_location=WALLET_DIR,
-                wallet_password='Alinne05@ora'
+                config_dir=wallet_dir,
+                wallet_location=wallet_dir,
+                wallet_password=WALLET_PASS
             )
-            
-            # Aplica regras linguisticas para busca ser Case e Accent Insensitive
             cursor = connection.cursor()
             cursor.execute("ALTER SESSION SET NLS_COMP = LINGUISTIC")
             cursor.execute("ALTER SESSION SET NLS_SORT = BINARY_AI")
-            
             connection.autocommit = False
             db = g._database = OracleWrapper(connection)
+            print('[DB] Conexao estabelecida com sucesso.')
         except Exception as e:
-            print('ERRO ORACLE:', e)
+            print(f'[DB] ERRO AO CONECTAR: {type(e).__name__}: {e}')
             raise e
     return db
 
