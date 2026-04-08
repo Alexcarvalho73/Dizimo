@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Controle de Dízimos</title>
+    <!-- Modern Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Phosphor Icons (modern and clean) -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div id="app-container">
+        <!-- Login View or Main App View will be injected here -->
+    </div>
+
+    <!-- Templates for the SPA -->
+    <template id="tpl-login">
+        <div class="login-page">
+            <div class="login-card glass-panel">
+                <div class="login-header">
+                    <img src="Logo.jpg" alt="Logo" style="width: 80px; height: auto; border-radius: 50%; margin-bottom: 1rem; border: 3px solid var(--primary-light);">
+                    <h2>Controle de Dízimos</h2>
+                    <p>Acesse com suas credenciais</p>
+                </div>
+                <form id="form-login">
+                    <div class="input-group">
+                        <label for="login-user">Usuário</label>
+                        <div class="input-wrapper">
+                            <i class="ph ph-user"></i>
+                            <input type="text" id="login-user" required placeholder="Digite seu usuário">
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label for="login-pass">Senha</label>
+                        <div class="input-wrapper">
+                            <i class="ph ph-lock"></i>
+                            <input type="password" id="login-pass" required placeholder="Sua senha secreta">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block mt-4">Entrar <i
+                            class="ph ph-arrow-right"></i></button>
+                    <div id="login-error" class="error-text"></div>
+                </form>
+            </div>
+        </div>
+    </template>
+
+    <template id="tpl-main">
+        <div class="layout">
+            <aside class="sidebar">
+                <div class="sidebar-brand">
+                    <img src="Logo.jpg" alt="Logo" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(255,255,255,0.3);">
+                    <span>Imaculado Coração de Maria</span>
+                </div>
+                <nav class="sidebar-nav">
+                    <button class="nav-item active" data-target="dashboard">
+                        <i class="ph ph-squares-four"></i> Dashboard
+                    </button>
+                    <button class="nav-item" data-target="dizimistas">
+                        <i class="ph ph-users"></i> Dizimistas
+                    </button>
+                    <button class="nav-item" data-target="recebimentos" id="nav-recebimentos">
+                        <i class="ph ph-receipt"></i> Lançamentos
+                    </button>
+                    <button class="nav-item" data-target="missas" id="nav-missas">
+                        <i class="ph ph-church"></i> Missas
+                    </button>
+                    <button class="nav-item" data-target="usuarios" id="nav-usuarios" style="display: none;">
+                        <i class="ph ph-users-four"></i> Usuários
+                    </button>
+                    <button class="nav-item" data-target="perfis" id="nav-perfis" style="display: none;">
+                        <i class="ph ph-shield-check"></i> Perfis & Permissões
+                    </button>
+                    <button class="nav-item" data-target="logout">
+                        <i class="ph ph-sign-out"></i> Sair
+                    </button>
+                </nav>
+            </aside>
+            <main class="main-content">
+                <header class="topbar">
+                    <h1 id="page-title">Dashboard</h1>
+                    <div class="user-profile">
+                        <span id="header-user-name">Usuário</span>
+                        <div class="avatar"><i class="ph ph-user"></i></div>
+                    </div>
+                </header>
+                <div id="content-area" class="content-area">
+                    <!-- Dynamic views go here -->
+                </div>
+            </main>
+        </div>
+    </template>
+
+    <!-- Views -->
+    <template id="view-dashboard">
+        <div class="dashboard">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon pulse"><i class="ph ph-currency-dollar"></i></div>
+                    <div class="stat-info">
+                        <span class="stat-label">Arrecadado Hoje</span>
+                        <span class="stat-value" id="stat-dia">R$ 0,00</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="ph ph-chart-line-up"></i></div>
+                    <div class="stat-info">
+                        <span class="stat-label">Total Mês</span>
+                        <span class="stat-value" id="stat-mes">R$ 0,00</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="ph ph-users-three"></i></div>
+                    <div class="stat-info">
+                        <span class="stat-label">Dizimistas Ativos</span>
+                        <span class="stat-value" id="stat-ativos">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="quick-actions mt-6">
+                <h3>Ações Rápidas</h3>
+                <div class="actions-flex">
+                    <button class="btn btn-secondary" onclick="app.navTo('novo-dizimista')"><i
+                            class="ph ph-user-plus"></i> Novo Dizimista</button>
+                    <button class="btn btn-primary" onclick="app.navTo('lancar-recebimento')"><i
+                            class="ph ph-plus-circle"></i> Lançar Pagamento</button>
+                </div>
+            </div>
+
+            <div class="recent-list mt-6 glass-panel">
+                <h3>Últimos Recebimentos</h3>
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Data</th>
+                                <th>Dizimista</th>
+                                <th>Competência</th>
+                                <th>Valor</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tb-recent">
+                            <!-- JS will populate -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <template id="view-dizimistas">
+        <div class="view-header">
+            <h2>Dizimistas Cadastrados</h2>
+            <button class="btn btn-primary" onclick="app.navTo('novo-dizimista')"><i class="ph ph-plus"></i> Novo
+                Cadastro</button>
+        </div>
+        <div class="search-bar mt-4">
+            <div class="input-wrapper">
+                <i class="ph ph-magnifying-glass"></i>
+                <input type="text" id="search-dizimista" placeholder="Busque por nome ou CPF...">
+            </div>
+        </div>
+        <div class="table-responsive mt-4 glass-panel">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Nome</th>
+                        <th>CPF</th>
+                        <th>Contato</th>
+                        <th>Status</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="tb-dizimistas">
+                </tbody>
+            </table>
+        </div>
+    </template>
+
+    <template id="view-novo-dizimista">
+        <div class="view-header">
+            <h2><button class="btn-icon" onclick="app.navTo('dizimistas')"><i class="ph ph-arrow-left"></i></button>
+                <span id="title-dizimista-form">Novo Dizimista</span>
+            </h2>
+        </div>
+        <form id="form-dizimista" class="form-layout glass-panel mt-4">
+            <input type="hidden" id="diz-id">
+            <div class="form-row">
+                <div class="input-group">
+                    <label>Nome Completo*</label>
+                    <input type="text" id="diz-nome" required>
+                </div>
+                <div class="input-group">
+                    <label>CPF*</label>
+                    <input type="text" id="diz-cpf" required placeholder="000.000.000-00">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="input-group">
+                    <label>Telefone</label>
+                    <input type="text" id="diz-tel">
+                </div>
+                <div class="input-group">
+                    <label>E-mail</label>
+                    <input type="email" id="diz-email">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="input-group">
+                    <label>Endereço</label>
+                    <input type="text" id="diz-endereco">
+                </div>
+                <div class="input-group">
+                    <label>Bairro</label>
+                    <input type="text" id="diz-bairro">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="input-group">
+                    <label>Cidade</label>
+                    <input type="text" id="diz-cidade">
+                </div>
+                <div class="input-group">
+                    <label>CEP</label>
+                    <input type="text" id="diz-cep" placeholder="00000-000">
+                </div>
+            </div>
+            <div class="input-group" style="margin-bottom: 1.5rem;">
+                <label>Observações</label>
+                <textarea id="diz-observacoes" rows="3" style="width: 100%; padding: 0.75rem 1rem; border: 1px solid var(--border-color); border-radius: var(--radius-md); outline: none; font-size: 0.95rem; background-color: #f8fafc; resize: vertical; font-family: inherit;"></textarea>
+            </div>
+            <div class="form-actions mt-4">
+                <button type="button" class="btn btn-secondary" onclick="app.navTo('dizimistas')">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Salvar Cadastro</button>
+            </div>
+        </form>
+    </template>
+
+    <template id="view-lancar-recebimento">
+        <div class="view-header">
+            <h2><button class="btn-icon" onclick="app.navTo('dashboard')"><i class="ph ph-arrow-left"></i></button> Novo
+                Recebimento</h2>
+        </div>
+        <form id="form-recebimento" class="form-layout glass-panel mt-4">
+            <div class="form-row">
+                <div class="input-group">
+                    <label>Dizimista*</label>
+                    <select id="rec-dizimista" required>
+                        <option value="">Selecione...</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Valor (R$)*</label>
+                    <input type="number" step="0.01" id="rec-valor" required>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="input-group">
+                    <label>Competência (MM/AAAA)*</label>
+                    <input type="text" id="rec-comp" required placeholder="04/2026">
+                </div>
+                <div class="input-group">
+                    <label>Tipo de Pagamento*</label>
+                    <select id="rec-tipo" required>
+                        <!-- Loaded from API -->
+                    </select>
+                </div>
+            </div>
+            <div class="form-actions mt-4">
+                <button type="button" class="btn btn-secondary" onclick="app.navTo('dashboard')">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Registrar Pagamento</button>
+            </div>
+        </form>
+    </template>
+
+    <template id="view-usuarios">
+        <div class="view-header">
+            <h2>Gestão de Usuários</h2>
+            <button class="btn btn-primary btn-novo-usuario" onclick="app.navTo('usuario-form')"><i
+                    class="ph ph-plus"></i> Novo Usuário</button>
+        </div>
+        <div class="table-responsive mt-4 glass-panel">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Nome</th>
+                        <th>Login</th>
+                        <th>Perfil</th>
+                        <th>Status</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="tb-usuarios">
+                </tbody>
+            </table>
+        </div>
+    </template>
+
+    <template id="view-usuario-form">
+        <div class="view-header">
+            <h2><button class="btn-icon" onclick="app.navTo('usuarios')"><i class="ph ph-arrow-left"></i></button> <span
+                    id="title-usuario-form">Novo Usuário</span></h2>
+        </div>
+        <form id="form-usuario" class="form-layout glass-panel mt-4">
+            <input type="hidden" id="usr-id">
+            <div class="form-row">
+                <div class="input-group">
+                    <label>Nome Completo*</label>
+                    <input type="text" id="usr-nome" required>
+                </div>
+                <div class="input-group">
+                    <label>Login*</label>
+                    <input type="text" id="usr-login" required>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="input-group">
+                    <label>Senha*</label>
+                    <input type="password" id="usr-senha" placeholder="Deixe em branco para manter a atual (na edição)">
+                </div>
+                <div class="input-group">
+                    <label>Perfil*</label>
+                    <select id="usr-perfil" required>
+                    </select>
+                </div>
+            </div>
+            <div class="form-actions mt-4">
+                <button type="button" class="btn btn-secondary" onclick="app.navTo('usuarios')">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Salvar Usuário</button>
+            </div>
+        </form>
+    </template>
+
+    <template id="view-perfis">
+        <div class="view-header">
+            <h2>Perfis & Permissões</h2>
+            <button class="btn btn-primary" onclick="app.navTo('perfil-form')"><i class="ph ph-shield-plus"></i> Novo
+                Perfil</button>
+        </div>
+        <div class="table-responsive mt-4 glass-panel">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Descrição</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="tb-perfis">
+                </tbody>
+            </table>
+        </div>
+    </template>
+
+    <template id="view-perfil-form">
+        <div class="view-header">
+            <h2><button class="btn-icon" onclick="app.navTo('perfis')"><i class="ph ph-arrow-left"></i></button> <span
+                    id="title-perfil-form">Novo Perfil</span></h2>
+        </div>
+        <form id="form-perfil" class="form-layout glass-panel mt-4">
+            <input type="hidden" id="prf-id">
+            <div class="input-group">
+                <label>Descrição do Perfil*</label>
+                <input type="text" id="prf-descricao" required>
+            </div>
+
+            <h3 class="mt-6 mb-4">Permissões de Acesso</h3>
+            <div class="permissions-grid" id="permissions-container">
+                <!-- Checkboxes populated via JS -->
+            </div>
+
+            <div class="form-actions mt-6">
+                <button type="button" class="btn btn-secondary" onclick="app.navTo('perfis')">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Salvar Perfil</button>
+            </div>
+        </form>
+    </template>
+
+    <!-- View: Listagem de Lançamentos -->
+    <template id="view-recebimentos">
+        <div class="view-header">
+            <h2>Lançamentos de Dízimos</h2>
+            <button class="btn btn-primary" id="btn-novo-recebimento" onclick="app.navTo('lancar-recebimento')"><i
+                    class="ph ph-plus"></i> Novo Lançamento</button>
+        </div>
+        <div class="filtros-bar glass-panel mt-4">
+            <div style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-end;">
+                <div class="input-group" style="flex: 1; min-width: 200px;">
+                    <label>Dizimista</label>
+                    <select id="filtro-dizimista">
+                        <option value="">Todos</option>
+                    </select>
+                </div>
+                <div class="input-group" style="flex: 1; min-width: 150px;">
+                    <label>Mês</label>
+                    <select id="filtro-mes">
+                        <option value="">Todos</option>
+                        <option value="01">Janeiro</option>
+                        <option value="02">Fevereiro</option>
+                        <option value="03">Março</option>
+                        <option value="04">Abril</option>
+                        <option value="05">Maio</option>
+                        <option value="06">Junho</option>
+                        <option value="07">Julho</option>
+                        <option value="08">Agosto</option>
+                        <option value="09">Setembro</option>
+                        <option value="10">Outubro</option>
+                        <option value="11">Novembro</option>
+                        <option value="12">Dezembro</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Ano</label>
+                    <input type="number" id="filtro-ano" placeholder="2026" min="2025" max="2099">
+                </div>
+                <div class="input-group"
+                    style="justify-content: flex-end; flex-direction: row; align-items: flex-end; gap: 0.75rem;">
+                    <button class="btn btn-secondary" id="btn-filtrar"><i class="ph ph-funnel"></i> Filtrar</button>
+                    <button class="btn btn-secondary" id="btn-limpar-filtro"><i class="ph ph-x"></i> Limpar</button>
+                </div>
+            </div>
+        </div>
+        <div class="table-responsive mt-4 glass-panel">
+            <div id="rec-total-bar" class="total-bar"></div>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Data</th>
+                        <th>Dizimista</th>
+                        <th>Competência</th>
+                        <th>Tipo</th>
+                        <th>Valor</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="tb-recebimentos"></tbody>
+            </table>
+        </div>
+    </template>
+
+    <!-- View: Missas -->
+    <template id="view-missas">
+        <div class="view-header">
+            <h2>Gestão de Missas</h2>
+            <button class="btn btn-primary" onclick="app.navTo('missa-form')"><i class="ph ph-plus"></i> Nova
+                Missa</button>
+        </div>
+        <div class="table-responsive mt-4 glass-panel">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Data</th>
+                        <th>Hora</th>
+                        <th>Tipo</th>
+                        <th>Celebrante</th>
+                        <th>Comunidade</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="tb-missas"></tbody>
+            </table>
+        </div>
+    </template>
+
+    <!-- View: Formulário de Missa -->
+    <template id="view-missa-form">
+        <div class="view-header">
+            <h2><button class="btn-icon" onclick="app.navTo('missas')"><i class="ph ph-arrow-left"></i></button> <span
+                    id="title-missa-form">Nova Missa</span></h2>
+        </div>
+        <form id="form-missa" class="form-layout glass-panel mt-4">
+            <input type="hidden" id="miss-id">
+            <div class="form-row">
+                <div class="input-group">
+                    <label>Data*</label>
+                    <input type="date" id="miss-data" required>
+                </div>
+                <div class="input-group">
+                    <label>Hora*</label>
+                    <input type="time" id="miss-hora" required>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="input-group">
+                    <label>Tipo de Missa</label>
+                    <select id="miss-tipo">
+                        <option value="">Selecione...</option>
+                        <option value="Dominical">Dominical</option>
+                        <option value="Feriale">Feriale</option>
+                        <option value="Especial">Especial</option>
+                        <option value="Novena">Novena</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Celebrante</label>
+                    <input type="text" id="miss-celebrante" placeholder="Nome do padre">
+                </div>
+            </div>
+            <div class="input-group">
+                <label>Comunidade</label>
+                <input type="text" id="miss-comunidade" placeholder="Ex: Comunidade Matriz">
+            </div>
+            <div class="form-actions mt-4">
+                <button type="button" class="btn btn-secondary" onclick="app.navTo('missas')">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Salvar Missa</button>
+            </div>
+        </form>
+    </template>
+
+    <!-- History Modal -->
+    <div id="modal-historico" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Histórico de Lançamentos - <span id="hist-nome"></span></h3>
+                <button type="button" class="btn-icon"
+                    onclick="document.getElementById('modal-historico').style.display='none'"><i
+                        class="ph ph-x"></i></button>
+            </div>
+            <div class="modal-body table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th style="width: 40px;"></th>
+                            <th>Competência</th>
+                            <th>Total Pago</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tb-hist-pagamentos">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Overlay Loading / Toast -->
+    <div id="toast-container"></div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>

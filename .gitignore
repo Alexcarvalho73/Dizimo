@@ -1,0 +1,16 @@
+# Banco de dados SQLite
+backend/dizimos.db
+backend/dizimos.db-journal
+
+# Python e Flask
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+env/
+.env
+
+# Logs e arquivos de sistema do Windows
+*.log
+Thumbs.db
+Desktop.ini
