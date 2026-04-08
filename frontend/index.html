@@ -161,11 +161,16 @@
             <button class="btn btn-primary" onclick="app.navTo('novo-dizimista')"><i class="ph ph-plus"></i> Novo
                 Cadastro</button>
         </div>
-        <div class="search-bar mt-4">
-            <div class="input-wrapper">
+        <div class="search-bar mt-4" style="display: flex; gap: 10px;">
+            <div class="input-wrapper" style="flex: 1;" id="normal-search-wrapper">
                 <i class="ph ph-magnifying-glass"></i>
                 <input type="text" id="search-dizimista" placeholder="Busque por nome ou CPF...">
             </div>
+            <div class="input-wrapper" style="flex: 1; display: none;" id="fonetica-search-wrapper">
+                <i class="ph ph-waveform"></i>
+                <input type="text" id="search-fonetica" placeholder="Som da palavra...">
+            </div>
+            <button class="btn btn-secondary" id="btn-toggle-fonetica" type="button" title="Alternar Busca Fonética"><i class="ph ph-waveform"></i> Fonética</button>
         </div>
         <div class="table-responsive mt-4 glass-panel">
             <table class="table">

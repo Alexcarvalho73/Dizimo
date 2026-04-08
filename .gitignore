@@ -14,3 +14,15 @@ env/
 *.log
 Thumbs.db
 Desktop.ini
+
+# Oracle e Cloud (Credenciais)
+DriveOracle/
+*.zip
+
+# Scripts temporários gerados por IA
+patch_*.py
+fix_*.py
+test_soundex.py
+
+# Ambiente virtual novo
+.venv/

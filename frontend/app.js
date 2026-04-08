@@ -174,9 +174,14 @@ const app = {
         }
     },
 
-    async loadDizimistas(q = '') {
+    async loadDizimistas(q = '', fonetica = '') {
         try {
-            const url = q ? `${API_URL}/dizimistas?q=${encodeURIComponent(q)}` : `${API_URL}/dizimistas`;
+            let url = `${API_URL}/dizimistas`;
+            if (fonetica) {
+                url += `?fonetica=${encodeURIComponent(fonetica)}`;
+            } else if (q) {
+                url += `?q=${encodeURIComponent(q)}`;
+            }
             const res = await fetch(url);
             if (res.ok) {
                 const dizimistas = await res.json();
@@ -328,13 +333,56 @@ const app = {
 
                 // Set up search listener only once per view render
                 const searchInput = document.getElementById('search-dizimista');
+                const foneticaInput = document.getElementById('search-fonetica');
+                const btnToggle = document.getElementById('btn-toggle-fonetica');
+                const normalWrap = document.getElementById('normal-search-wrapper');
+                const foneticaWrap = document.getElementById('fonetica-search-wrapper');
+
+                if (btnToggle && !btnToggle.dataset.listenerAttached) {
+                    btnToggle.addEventListener('click', () => {
+                        if (normalWrap.style.display !== 'none') {
+                            normalWrap.style.display = 'none';
+                            foneticaWrap.style.display = 'flex';
+                            btnToggle.classList.remove('btn-secondary');
+                            btnToggle.classList.add('btn-primary');
+                            searchInput.value = '';
+                            this.loadDizimistas('', foneticaInput.value);
+                        } else {
+                            normalWrap.style.display = 'flex';
+                            foneticaWrap.style.display = 'none';
+                            btnToggle.classList.remove('btn-primary');
+                            btnToggle.classList.add('btn-secondary');
+                            foneticaInput.value = '';
+                            this.loadDizimistas(searchInput.value, '');
+                        }
+                    });
+                    btnToggle.dataset.listenerAttached = 'true';
+                }
+
                 if (searchInput && !searchInput.dataset.listenerAttached) {
                     searchInput.addEventListener('input', (e) => {
-                        this.loadDizimistas(e.target.value);
+                        this.loadDizimistas(e.target.value, '');
                     });
                     searchInput.dataset.listenerAttached = 'true';
-                    // Restore original value if we were already searching (e.g. after an update)
-                    if (q) searchInput.value = q;
+                    if (q) {
+                        searchInput.value = q;
+                        normalWrap.style.display = 'flex';
+                        foneticaWrap.style.display = 'none';
+                    }
+                }
+                
+                if (foneticaInput && !foneticaInput.dataset.listenerAttached) {
+                    foneticaInput.addEventListener('input', (e) => {
+                        this.loadDizimistas('', e.target.value);
+                    });
+                    foneticaInput.dataset.listenerAttached = 'true';
+                    if (fonetica) {
+                        foneticaInput.value = fonetica;
+                        normalWrap.style.display = 'none';
+                        foneticaWrap.style.display = 'flex';
+                        btnToggle.classList.add('btn-primary');
+                        btnToggle.classList.remove('btn-secondary');
+                    }
                 }
             }
         } catch (e) {
@@ -647,10 +695,16 @@ const app = {
         document.getElementById('usr-nome').value = u.nome;
         document.getElementById('usr-login').value = u.login;
         
-        // set profile async safe
-        setTimeout(() => {
-            document.getElementById('usr-perfil').value = u.id_perfil;
-        }, 150);
+        // Verifica existencia do perfil ciclicamente (robusto contra lentidão da nuvem)
+        const setProfile = () => {
+            const select = document.getElementById('usr-perfil');
+            if(select && select.options.length > 1) {
+                select.value = u.id_perfil;
+            } else {
+                setTimeout(setProfile, 50);
+            }
+        };
+        setProfile();
         document.getElementById('usr-senha').required = false; 
     },
 
@@ -726,12 +780,18 @@ const app = {
             const res = await fetch(`${API_URL}/perfis/${p.id_perfil}/permissoes`);
             if(res.ok) {
                 const checkedIds = await res.json();
-                setTimeout(() => {
-                    checkedIds.forEach(id => {
-                        const cb = document.getElementById(`perm-${id}`);
-                        if(cb) cb.checked = true;
-                    });
-                }, 150);
+                const setPerms = () => {
+                    const checkboxes = document.querySelectorAll('.permission-item input');
+                    if(checkboxes.length > 0) {
+                        checkedIds.forEach(id => {
+                            const cb = document.getElementById(`perm-${id}`);
+                            if(cb) cb.checked = true;
+                        });
+                    } else {
+                        setTimeout(setPerms, 50);
+                    }
+                };
+                setPerms();
             }
         } catch(e) {}
     },
