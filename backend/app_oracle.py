@@ -29,17 +29,18 @@ def requires_permission(permission_name):
         @wraps(f)
         def decorated_function(*args, **kwargs):
             user_id = request.headers.get('X-User-Id')
-            if not user_id:
-                return jsonify({'error': 'Usuário não identificado. Re-faça o login.'}), 401
-            
+            try:
+                user_id = int(user_id)
+            except (ValueError, TypeError):
+                return jsonify({'error': 'ID de usuário inválido.'}), 400
+
             db = get_db()
-            # Admin costuma ter tudo liberatdo por padrão se id_perfil=1 (opcional)
             user = db.execute("SELECT id_perfil FROM usuarios WHERE id_usuario = ?", (user_id,)).fetchone()
             if not user:
                  return jsonify({'error': 'Usuário não encontrado.'}), 401
             
             # Se for admin (perfil 1), libera direto
-            if user['id_perfil'] == 1:
+            if int(user['id_perfil']) == 1:
                 return f(*args, **kwargs)
 
             # Check if user has permission
@@ -59,16 +60,20 @@ def requires_permission(permission_name):
 
 def check_permission_backend(permission_name):
     user_id = request.headers.get('X-User-Id')
-    if not user_id: return False
+    try:
+        user_id = int(request.headers.get('X-User-Id'))
+    except (ValueError, TypeError):
+        return False
+        
     db = get_db()
     user = db.execute("SELECT id_perfil FROM usuarios WHERE id_usuario = ?", (user_id,)).fetchone()
     if not user: return False
-    if user['id_perfil'] == 1: return True
+    if int(user['id_perfil']) == 1: return True
     has = db.execute("""
         SELECT COUNT(*) as total FROM perfil_permissao pp
         JOIN permissoes per ON pp.id_permissao = per.id_permissao
         WHERE pp.id_perfil = ? AND per.descricao = ?
-    """, (user['id_perfil'], permission_name)).fetchone()
+    """, (int(user['id_perfil']), permission_name)).fetchone()
     return has and has['total'] > 0
 
 @app.route('/')
