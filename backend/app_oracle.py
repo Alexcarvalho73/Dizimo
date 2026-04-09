@@ -15,11 +15,14 @@ from functools import wraps
 app = Flask(__name__, static_folder='../frontend', static_url_path='')
 CORS(app)
 
-# Custom JSON Provider for Flask >= 2.2 to handle datetime objects
+# Custom JSON Provider for Flask >= 2.2 to handle datetime objects and Oracle LOBs
 class CustomJSONProvider(app.json_provider_class):
     def default(self, obj):
         if isinstance(obj, (datetime, date)):
             return obj.isoformat()
+        # Handle Oracle LOBs (CLOB)
+        if hasattr(obj, 'read') and callable(obj.read):
+            return obj.read()
         return super().default(obj)
 
 app.json = CustomJSONProvider(app)
