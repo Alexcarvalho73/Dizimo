@@ -861,6 +861,121 @@ const app = {
         }
     },
 
+    async loadMissas() {
+        try {
+            const res = await app.authFetch(`${API_URL}/missas`);
+            if (res.ok) {
+                const missas = await res.json();
+                const tbody = document.getElementById('tb-missas');
+                if (!tbody) return;
+                tbody.innerHTML = '';
+                if (missas.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-muted);">Nenhuma missa cadastrada</td></tr>';
+                    return;
+                }
+                missas.forEach(m => {
+                    const dataFmt = m.data_missa ? new Date(m.data_missa + 'T00:00').toLocaleDateString('pt-BR') : m.data_missa;
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td><strong>${dataFmt}</strong></td>
+                        <td>${m.hora || '-'}</td>
+                        <td>${m.comunidade || '-'}</td>
+                        <td>${m.celebrante || '-'}</td>
+                        <td><span class="badge badge-success">${m.tipo || '-'}</span></td>
+                        <td>
+                            <button class="btn-icon btn-edit-missa" data-missa='${JSON.stringify(m)}' title="Editar"><i class="ph ph-pencil-simple"></i></button>
+                            <button class="btn-icon btn-del-missa" data-id="${m.id_missa}" title="Excluir" style="color:var(--error-color)"><i class="ph ph-trash"></i></button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+
+                document.querySelectorAll('.btn-edit-missa').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const m = JSON.parse(e.currentTarget.getAttribute('data-missa'));
+                        this.navTo('missa-form');
+                        setTimeout(() => this.fillMissaForm(m), 100);
+                    });
+                });
+
+                document.querySelectorAll('.btn-del-missa').forEach(btn => {
+                    btn.addEventListener('click', async (e) => {
+                        if (confirm('Deseja excluir esta missa?')) {
+                            const id = e.currentTarget.getAttribute('data-id');
+                            const delRes = await app.authFetch(`${API_URL}/missas/${id}`, { method: 'DELETE' });
+                            if (delRes.ok) {
+                                this.showToast('Missa excluída!');
+                                this.loadMissas();
+                            } else {
+                                this.showToast('Erro ao excluir', 'error');
+                            }
+                        }
+                    });
+                });
+            }
+        } catch (e) {
+            this.showToast('Erro ao carregar missas', 'error');
+        }
+    },
+
+    setupMissaForm() {
+        document.getElementById('title-missa-form').textContent = 'Nova Missa';
+        document.getElementById('missa-id').value = '';
+        document.getElementById('missa-data').value = '';
+        document.getElementById('missa-hora').value = '';
+        document.getElementById('missa-tipo').value = '';
+        document.getElementById('missa-comunidade').value = '';
+        document.getElementById('missa-celebrante').value = '';
+
+        const form = document.getElementById('form-missa');
+        const newForm = form.cloneNode(true);
+        form.parentNode.replaceChild(newForm, form);
+
+        newForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('missa-id').value;
+            const data = {
+                data_missa: document.getElementById('missa-data').value,
+                hora: document.getElementById('missa-hora').value,
+                tipo: document.getElementById('missa-tipo').value,
+                comunidade: document.getElementById('missa-comunidade').value,
+                celebrante: document.getElementById('missa-celebrante').value,
+            };
+
+            try {
+                const method = id ? 'PUT' : 'POST';
+                const url = id ? `${API_URL}/missas/${id}` : `${API_URL}/missas`;
+                const res = await app.authFetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                if (res.ok) {
+                    this.showToast(id ? 'Missa atualizada!' : 'Missa cadastrada!');
+                    this.navTo('missas');
+                } else {
+                    this.showToast('Erro ao salvar missa', 'error');
+                }
+            } catch (err) {
+                this.showToast('Erro de conexão', 'error');
+            }
+        });
+    },
+
+    fillMissaForm(m) {
+        document.getElementById('title-missa-form').textContent = 'Editar Missa';
+        document.getElementById('missa-id').value = m.id_missa;
+        // Formatar data YYYY-MM-DD para input type=date
+        let dt = m.data_missa || '';
+        if (dt.includes('T')) dt = dt.split('T')[0];
+        if (dt.includes(' ')) dt = dt.split(' ')[0];
+        document.getElementById('missa-data').value = dt;
+        document.getElementById('missa-hora').value = m.hora || '';
+        document.getElementById('missa-tipo').value = m.tipo || '';
+        document.getElementById('missa-comunidade').value = m.comunidade || '';
+        document.getElementById('missa-celebrante').value = m.celebrante || '';
+    },
+
     async setupUsuarioForm() {
         document.getElementById('title-usuario-form').textContent = 'Novo Usuário';
         document.getElementById('usr-id').value = '';
@@ -958,6 +1073,10 @@ const app = {
                     {
                         label: '💰 Lançamentos',
                         keywords: ['Lançamento']
+                    },
+                    {
+                        label: '⛪ Missas',
+                        keywords: ['Missa']
                     },
                     {
                         label: '👥 Usuários',

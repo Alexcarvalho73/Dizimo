@@ -264,6 +264,75 @@
         </form>
     </template>
 
+    <!-- ===================== MISSAS ===================== -->
+    <template id="view-missas">
+        <div class="view-header">
+            <h2><i class="ph ph-church"></i> Gestão de Missas</h2>
+            <button class="btn btn-primary" onclick="app.navTo('missa-form')"><i class="ph ph-plus"></i> Nova Missa</button>
+        </div>
+        <div class="table-responsive mt-4 glass-panel">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Data</th>
+                        <th>Hora</th>
+                        <th>Comunidade</th>
+                        <th>Celebrante</th>
+                        <th>Tipo</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="tb-missas"></tbody>
+            </table>
+        </div>
+    </template>
+
+    <template id="view-missa-form">
+        <div class="view-header">
+            <h2><button class="btn-icon" onclick="app.navTo('missas')"><i class="ph ph-arrow-left"></i></button>
+                <span id="title-missa-form">Nova Missa</span></h2>
+        </div>
+        <form id="form-missa" class="form-layout glass-panel mt-4">
+            <input type="hidden" id="missa-id">
+            <div class="form-row">
+                <div class="input-group">
+                    <label>Data da Missa*</label>
+                    <input type="date" id="missa-data" required>
+                </div>
+                <div class="input-group">
+                    <label>Horário*</label>
+                    <input type="time" id="missa-hora" required>
+                </div>
+                <div class="input-group">
+                    <label>Tipo</label>
+                    <select id="missa-tipo">
+                        <option value="">Selecione...</option>
+                        <option value="Domingo">Domingo</option>
+                        <option value="Dia de semana">Dia de semana</option>
+                        <option value="Festa">Festa / Solenidade</option>
+                        <option value="Funeral">Funeral</option>
+                        <option value="Matrimônio">Matrimônio</option>
+                        <option value="Outro">Outro</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="input-group">
+                    <label>Comunidade</label>
+                    <input type="text" id="missa-comunidade" placeholder="Nome da comunidade ou local">
+                </div>
+                <div class="input-group">
+                    <label>Celebrante</label>
+                    <input type="text" id="missa-celebrante" placeholder="Nome do padre celebrante">
+                </div>
+            </div>
+            <div class="form-actions mt-4">
+                <button type="button" class="btn btn-secondary" onclick="app.navTo('missas')">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Salvar Missa</button>
+            </div>
+        </form>
+    </template>
+
     <template id="view-lancar-recebimento">
         <div class="view-header">
             <h2><button class="btn-icon" onclick="app.voltarDeRecebimento()"><i class="ph ph-arrow-left"></i></button> Novo

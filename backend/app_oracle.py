@@ -438,6 +438,58 @@ def get_dizimista_historico(id):
     return jsonify([dict(h) for h in historico])
 
 
+# --- Missas ---
+@app.route('/api/missas', methods=['GET'])
+@requires_permission('Visualizar Missas')
+def get_missas():
+    db = get_db()
+    missas = db.execute("SELECT * FROM missas WHERE status = 1 ORDER BY data_missa DESC, hora").fetchall()
+    return jsonify([dict(m) for m in missas])
+
+@app.route('/api/missas', methods=['POST'])
+@requires_permission('Criar Missas')
+def create_missa():
+    data = request.json
+    db = get_db()
+    db.execute("""
+        INSERT INTO missas (data_missa, hora, comunidade, celebrante, tipo)
+        VALUES (?, ?, ?, ?, ?)
+    """, (data.get('data_missa'), data.get('hora'), data.get('comunidade'),
+          data.get('celebrante'), data.get('tipo')))
+    db.commit()
+    return jsonify({'message': 'Missa criada com sucesso'}), 201
+
+@app.route('/api/missas/<int:id>', methods=['GET'])
+@requires_permission('Visualizar Missas')
+def get_missa(id):
+    db = get_db()
+    m = db.execute("SELECT * FROM missas WHERE id_missa = ?", (id,)).fetchone()
+    if not m:
+        return jsonify({'error': 'Não encontrado'}), 404
+    return jsonify(dict(m))
+
+@app.route('/api/missas/<int:id>', methods=['PUT'])
+@requires_permission('Editar Missas')
+def update_missa(id):
+    data = request.json
+    db = get_db()
+    db.execute("""
+        UPDATE missas SET data_missa=?, hora=?, comunidade=?, celebrante=?, tipo=?
+        WHERE id_missa=?
+    """, (data.get('data_missa'), data.get('hora'), data.get('comunidade'),
+          data.get('celebrante'), data.get('tipo'), id))
+    db.commit()
+    return jsonify({'message': 'Missa atualizada com sucesso'})
+
+@app.route('/api/missas/<int:id>', methods=['DELETE'])
+@requires_permission('Excluir Missas')
+def delete_missa(id):
+    db = get_db()
+    db.execute("UPDATE missas SET status = 0 WHERE id_missa = ?", (id,))
+    db.commit()
+    return jsonify({'message': 'Missa excluída'})
+
+
 # --- Usuários & Perfis (RF02, RF03) ---
 @app.route('/api/perfis', methods=['GET', 'POST'])
 def handle_perfis():
