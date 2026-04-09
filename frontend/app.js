@@ -754,6 +754,21 @@ const app = {
         });
     },
 
+    voltarDeRecebimento() {
+        const origemId = this.state.prefillOrigemHistoricoId;
+        const origemNome = this.state.prefillOrigemHistoricoNome;
+        // Limpar estado antes de navegar
+        this.state.prefillOrigemHistoricoId = null;
+        this.state.prefillOrigemHistoricoNome = null;
+        this.state.prefillRecebimento = null;
+        if (origemId) {
+            this.navTo('dizimistas');
+            setTimeout(() => this.openHistoricoModal(origemId, origemNome), 300);
+        } else {
+            this.navTo('dashboard');
+        }
+    },
+
     async loadUsuarios() {
         try {
             const res = await app.authFetch(`${API_URL}/usuarios`);
