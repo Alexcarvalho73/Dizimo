@@ -356,10 +356,11 @@ def create_dizimista():
             pass
 
     cursor = db.execute("""
-        INSERT INTO dizimistas (nome, cpf, telefone, email, endereco, bairro, cidade, cep, data_nascimento, observacoes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO dizimistas (nome, cpf, telefone, email, endereco, bairro, cidade, cep, data_nascimento, valor_dizimo, observacoes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (data.get('nome'), cpf, data.get('telefone'), data.get('email'), 
-          data.get('endereco'), data.get('bairro'), data.get('cidade'), data.get('cep'), nasc_dt, data.get('observacoes')))
+          data.get('endereco'), data.get('bairro'), data.get('cidade'), data.get('cep'), nasc_dt, 
+          data.get('valor_dizimo', 0), data.get('observacoes')))
     db.commit()
     
     # Needs a real logged user for audit in production, using 'system' or passed user
@@ -409,11 +410,11 @@ def manage_dizimista(id):
 
         db.execute("""
             UPDATE dizimistas 
-            SET nome=?, cpf=?, telefone=?, email=?, endereco=?, bairro=?, cidade=?, cep=?, observacoes=?, fonetica=?, data_nascimento=?
+            SET nome=?, cpf=?, telefone=?, email=?, endereco=?, bairro=?, cidade=?, cep=?, observacoes=?, fonetica=?, data_nascimento=?, valor_dizimo=?
             WHERE id_dizimista=?
         """, (data.get('nome'), cpf, data.get('telefone'), data.get('email'), 
               data.get('endereco'), data.get('bairro'), data.get('cidade'), data.get('cep'), data.get('observacoes'), 
-              fonetica_str, nasc_dt, id))
+              fonetica_str, nasc_dt, data.get('valor_dizimo', 0), id))
         db.commit()
         
         user_id = data.get('user_id', 'sistema')

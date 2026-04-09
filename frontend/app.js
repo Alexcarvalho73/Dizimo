@@ -505,6 +505,7 @@ const app = {
         document.getElementById('diz-cidade').value = '';
         document.getElementById('diz-cep').value = '';
         document.getElementById('diz-nascimento').value = '';
+        document.getElementById('diz-valor').value = '';
         document.getElementById('diz-observacoes').value = '';
 
         const cpfInput = document.getElementById('diz-cpf');
@@ -535,8 +536,9 @@ const app = {
                 cidade: document.getElementById('diz-cidade').value,
                 cep: document.getElementById('diz-cep').value,
                 data_nascimento: document.getElementById('diz-nascimento').value,
+                valor_dizimo: parseFloat(document.getElementById('diz-valor').value) || 0,
                 observacoes: document.getElementById('diz-observacoes').value,
-                user_id: this.state.user.id_usuario
+                user_id: this.state.user ? this.state.user.id_usuario : 'sistema'
             };
 
             const method = id ? 'PUT' : 'POST';
@@ -579,6 +581,7 @@ const app = {
             if (nasc.includes(' ')) nasc = nasc.split(' ')[0];
         }
         document.getElementById('diz-nascimento').value = nasc || '';
+        document.getElementById('diz-valor').value = d.valor_dizimo || '';
         document.getElementById('diz-observacoes').value = d.observacoes || '';
     },
 
