@@ -560,6 +560,36 @@
     <!-- Overlay Loading / Toast -->
     <div id="toast-container"></div>
 
+    <!-- Modal Trocar Senha -->
+    <div id="modal-senha" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <h3><i class="ph ph-key"></i> Alterar Senha</h3>
+                <button type="button" class="btn-icon" onclick="document.getElementById('modal-senha').style.display='none'"><i class="ph ph-x"></i></button>
+            </div>
+            <div class="modal-body">
+                <form id="form-change-pass">
+                    <div class="input-group mb-4">
+                        <label>Senha Atual</label>
+                        <input type="password" id="pass-atual" required>
+                    </div>
+                    <div class="input-group mb-4">
+                        <label>Nova Senha</label>
+                        <input type="password" id="pass-nova" required>
+                    </div>
+                    <div class="input-group mb-4">
+                        <label>Confirmar Nova Senha</label>
+                        <input type="password" id="pass-confirma" required>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="document.getElementById('modal-senha').style.display='none'">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">Alterar Senha</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <script src="app.js"></script>
 </body>
 
