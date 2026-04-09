@@ -311,123 +311,10 @@ const app = {
                 });
 
                 document.querySelectorAll('.btn-hist-diz').forEach(btn => {
-                    btn.addEventListener('click', async (e) => {
+                    btn.addEventListener('click', (e) => {
                         const id = e.currentTarget.getAttribute('data-id');
                         const nome = e.currentTarget.getAttribute('data-nome');
-                        
-                        document.getElementById('hist-nome').textContent = nome;
-                        const tbodyHist = document.getElementById('tb-hist-pagamentos');
-                        tbodyHist.innerHTML = '<tr><td colspan="3" style="text-align:center;">Carregando...</td></tr>';
-                        document.getElementById('modal-historico').style.display = 'flex';
-                        
-                        try {
-                            const res = await app.authFetch(`${API_URL}/recebimentos?id_dizimista=${id}`);
-                            if (res.ok) {
-                                const recs = await res.json();
-                                tbodyHist.innerHTML = '';
-                                
-                                const grouped = {};
-                                recs.forEach(r => {
-                                    if(!grouped[r.competencia]) grouped[r.competencia] = [];
-                                    grouped[r.competencia].push(r);
-                                });
-                                
-                                // Geração das 12 competências do ano atual
-                                const currentYear = new Date().getFullYear();
-                                for (let m = 1; m <= 12; m++) {
-                                    const compStr = `${m.toString().padStart(2, '0')}/${currentYear}`;
-                                    if (!grouped[compStr]) grouped[compStr] = [];
-                                }
-                                
-                                // Sorting por competência (decrescente)
-                                const sortedComps = Object.keys(grouped).sort((a,b) => {
-                                    const [mA, yA] = a.split('/');
-                                    const [mB, yB] = b.split('/');
-                                    const valA = parseInt(yA)*100 + parseInt(mA);
-                                    const valB = parseInt(yB)*100 + parseInt(mB);
-                                    return valB - valA;
-                                });
-
-                                sortedComps.forEach(comp => {
-                                    const items = grouped[comp];
-                                    const total = items.reduce((sum, item) => sum + item.valor, 0);
-                                    const hasItems = items.length > 0;
-                                    
-                                    const mainTr = document.createElement('tr');
-                                    mainTr.innerHTML = `
-                                        <td style="text-align:center; vertical-align:middle;">
-                                            ${hasItems ? `<button class="btn-icon btn-toggle-details" style="font-size:1.5rem" title="Ver Detalhes"><i class="ph ph-plus-circle"></i></button>` : `<button class="btn-icon btn-fast-pay" data-comp="${comp}" data-id="${id}" style="font-size:1.5rem; color:var(--primary-color)" title="Lançar Recebimento"><i class="ph ph-hand-coins"></i></button>`}
-                                        </td>
-                                        <td style="vertical-align:middle;"><strong>${comp}</strong></td>
-                                        <td style="vertical-align:middle; color:${hasItems ? 'var(--success-color)' : 'var(--text-muted)'};font-weight:bold;">
-                                            R$ ${total.toFixed(2).replace('.', ',')}
-                                        </td>
-                                    `;
-                                    tbodyHist.appendChild(mainTr);
-                                    
-                                    if (hasItems) {
-                                        const detailsTr = document.createElement('tr');
-                                        detailsTr.style.display = 'none';
-                                        
-                                        let detailsHtml = `<td colspan="3" style="padding: 0; background: var(--bg-main);">
-                                            <div style="padding: 1rem 1rem 1rem 3rem; border-left: 3px solid var(--primary-light);">
-                                                <table style="width: 100%; font-size: 0.85rem; border-collapse: collapse;">
-                                                    <thead style="color: var(--text-muted); border-bottom: 2px solid var(--border-color);">
-                                                        <tr>
-                                                            <th style="padding:0.5rem; text-align:left;">Data Pgto</th>
-                                                            <th style="padding:0.5rem; text-align:left;">Competência Ref.</th>
-                                                            <th style="padding:0.5rem; text-align:left;">Tipo</th>
-                                                            <th style="padding:0.5rem; text-align:right;">Valor</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>`;
-                                        items.forEach(r => {
-                                            const dataFmt = r.data_recebimento ? new Date(r.data_recebimento).toLocaleDateString('pt-BR') : '-';
-                                            detailsHtml += `
-                                                <tr style="border-bottom: 1px solid rgba(0,0,0,0.05);">
-                                                    <td style="padding:0.5rem;">${dataFmt}</td>
-                                                    <td style="padding:0.5rem;">${r.competencia}</td>
-                                                    <td style="padding:0.5rem;">${r.tipo_pagamento_nome || '-'}</td>
-                                                    <td style="padding:0.5rem; text-align:right; font-weight:600;">R$ ${r.valor.toFixed(2).replace('.', ',')}</td>
-                                                </tr>
-                                            `;
-                                        });
-                                        detailsHtml += `</tbody></table></div></td>`;
-                                        detailsTr.innerHTML = detailsHtml;
-                                        tbodyHist.appendChild(detailsTr);
-                                        
-                                        const btnToggle = mainTr.querySelector('.btn-toggle-details');
-                                        btnToggle.addEventListener('click', () => {
-                                            const icon = btnToggle.querySelector('i');
-                                            if (detailsTr.style.display === 'none') {
-                                                detailsTr.style.display = '';
-                                                icon.classList.remove('ph-plus-circle');
-                                                icon.classList.add('ph-minus-circle');
-                                            } else {
-                                                detailsTr.style.display = 'none';
-                                                icon.classList.add('ph-plus-circle');
-                                                icon.classList.remove('ph-minus-circle');
-                                            }
-                                        });
-                                    } else {
-                                        const btnFastPay = mainTr.querySelector('.btn-fast-pay');
-                                        if (btnFastPay) {
-                                            btnFastPay.addEventListener('click', (ev) => {
-                                                document.getElementById('modal-historico').style.display = 'none';
-                                                 app.state.prefillRecebimento = {
-                                                    id_dizimista: ev.currentTarget.getAttribute('data-id'),
-                                                    competencia: ev.currentTarget.getAttribute('data-comp'),
-                                                    dizimistaNome: ev.currentTarget.closest('[data-diz-nome]')?.getAttribute('data-diz-nome') || nome
-                                                };
-                                                app.navTo('lancar-recebimento');
-                                            });
-                                        }
-                                    }
-                                });
-                            }
-                        } catch(err) {
-                            tbodyHist.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--error-color);">Erro ao carregar histórico.</td></tr>';
-                        }
+                        this.openHistoricoModal(id, nome);
                     });
                 });
 
@@ -487,6 +374,117 @@ const app = {
             }
         } catch (e) {
             this.showToast('Erro ao carregar dizimistas', 'error');
+        }
+    },
+
+    async openHistoricoModal(id, nome) {
+        document.getElementById('hist-nome').textContent = nome;
+        const tbodyHist = document.getElementById('tb-hist-pagamentos');
+        tbodyHist.innerHTML = '<tr><td colspan="3" style="text-align:center;">Carregando...</td></tr>';
+        document.getElementById('modal-historico').style.display = 'flex';
+
+        try {
+            const res = await app.authFetch(`${API_URL}/recebimentos?id_dizimista=${id}`);
+            if (res.ok) {
+                const recs = await res.json();
+                tbodyHist.innerHTML = '';
+
+                const grouped = {};
+                recs.forEach(r => {
+                    if (!grouped[r.competencia]) grouped[r.competencia] = [];
+                    grouped[r.competencia].push(r);
+                });
+
+                // Gerar 12 competências do ano atual
+                const currentYear = new Date().getFullYear();
+                for (let m = 1; m <= 12; m++) {
+                    const compStr = `${m.toString().padStart(2, '0')}/${currentYear}`;
+                    if (!grouped[compStr]) grouped[compStr] = [];
+                }
+
+                // Sorting decrescente
+                const sortedComps = Object.keys(grouped).sort((a, b) => {
+                    const [mA, yA] = a.split('/');
+                    const [mB, yB] = b.split('/');
+                    return (parseInt(yB) * 100 + parseInt(mB)) - (parseInt(yA) * 100 + parseInt(mA));
+                });
+
+                sortedComps.forEach(comp => {
+                    const items = grouped[comp];
+                    const total = items.reduce((sum, item) => sum + item.valor, 0);
+                    const hasItems = items.length > 0;
+
+                    const mainTr = document.createElement('tr');
+                    mainTr.innerHTML = `
+                        <td style="text-align:center; vertical-align:middle;">
+                            ${hasItems
+                                ? `<button class="btn-icon btn-toggle-details" style="font-size:1.5rem" title="Ver Detalhes"><i class="ph ph-plus-circle"></i></button>`
+                                : `<button class="btn-icon btn-fast-pay" data-comp="${comp}" data-id="${id}" style="font-size:1.5rem; color:var(--primary-color)" title="Lançar Recebimento"><i class="ph ph-hand-coins"></i></button>`}
+                        </td>
+                        <td style="vertical-align:middle;"><strong>${comp}</strong></td>
+                        <td style="vertical-align:middle; color:${hasItems ? 'var(--success-color)' : 'var(--text-muted)'};font-weight:bold;">
+                            R$ ${total.toFixed(2).replace('.', ',')}
+                        </td>
+                    `;
+                    tbodyHist.appendChild(mainTr);
+
+                    if (hasItems) {
+                        const detailsTr = document.createElement('tr');
+                        detailsTr.style.display = 'none';
+                        let detailsHtml = `<td colspan="3" style="padding:0; background:var(--bg-main);">
+                            <div style="padding: 1rem 1rem 1rem 3rem; border-left: 3px solid var(--primary-light);">
+                                <table style="width:100%; font-size:0.85rem; border-collapse:collapse;">
+                                    <thead style="color:var(--text-muted); border-bottom:2px solid var(--border-color);">
+                                        <tr>
+                                            <th style="padding:0.5rem; text-align:left;">Data Pgto</th>
+                                            <th style="padding:0.5rem; text-align:left;">Competência Ref.</th>
+                                            <th style="padding:0.5rem; text-align:left;">Tipo</th>
+                                            <th style="padding:0.5rem; text-align:right;">Valor</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>`;
+                        items.forEach(r => {
+                            const dataFmt = r.data_recebimento ? new Date(r.data_recebimento).toLocaleDateString('pt-BR') : '-';
+                            detailsHtml += `<tr style="border-bottom:1px solid rgba(0,0,0,0.05);">
+                                <td style="padding:0.5rem;">${dataFmt}</td>
+                                <td style="padding:0.5rem;">${r.competencia}</td>
+                                <td style="padding:0.5rem;">${r.tipo_pagamento_nome || '-'}</td>
+                                <td style="padding:0.5rem; text-align:right; font-weight:600;">R$ ${r.valor.toFixed(2).replace('.', ',')}</td>
+                            </tr>`;
+                        });
+                        detailsHtml += `</tbody></table></div></td>`;
+                        detailsTr.innerHTML = detailsHtml;
+                        tbodyHist.appendChild(detailsTr);
+
+                        const btnToggle = mainTr.querySelector('.btn-toggle-details');
+                        btnToggle.addEventListener('click', () => {
+                            const icon = btnToggle.querySelector('i');
+                            if (detailsTr.style.display === 'none') {
+                                detailsTr.style.display = '';
+                                icon.classList.replace('ph-plus-circle', 'ph-minus-circle');
+                            } else {
+                                detailsTr.style.display = 'none';
+                                icon.classList.replace('ph-minus-circle', 'ph-plus-circle');
+                            }
+                        });
+                    } else {
+                        const btnFastPay = mainTr.querySelector('.btn-fast-pay');
+                        if (btnFastPay) {
+                            btnFastPay.addEventListener('click', (ev) => {
+                                document.getElementById('modal-historico').style.display = 'none';
+                                app.state.prefillRecebimento = {
+                                    id_dizimista: ev.currentTarget.getAttribute('data-id'),
+                                    competencia: ev.currentTarget.getAttribute('data-comp'),
+                                    dizimistaNome: nome
+                                };
+                                app.navTo('lancar-recebimento');
+                            });
+                        }
+                    }
+                });
+            }
+        } catch (err) {
+            tbodyHist.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--error-color);">Erro ao carregar histórico.</td></tr>';
         }
     },
 
