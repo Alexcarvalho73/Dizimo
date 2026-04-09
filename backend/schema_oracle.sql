@@ -40,6 +40,7 @@ CREATE TABLE dizimistas (
     cidade VARCHAR2(100),
     cep VARCHAR2(20),
     data_ingresso TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    data_nascimento DATE,
     status NUMBER DEFAULT 1,
     observacoes CLOB
 );

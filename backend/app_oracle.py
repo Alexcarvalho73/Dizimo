@@ -330,11 +330,19 @@ def create_dizimista():
     if exist:
         return jsonify({'error': 'CPF já cadastrado.'}), 400
         
+    nasc = data.get('data_nascimento')
+    nasc_dt = None
+    if nasc and nasc.strip():
+        try:
+            nasc_dt = datetime.strptime(nasc, '%Y-%m-%d')
+        except:
+            pass
+
     cursor = db.execute("""
-        INSERT INTO dizimistas (nome, cpf, telefone, email, endereco, bairro, cidade, cep, observacoes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO dizimistas (nome, cpf, telefone, email, endereco, bairro, cidade, cep, data_nascimento, observacoes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (data.get('nome'), cpf, data.get('telefone'), data.get('email'), 
-          data.get('endereco'), data.get('bairro'), data.get('cidade'), data.get('cep'), data.get('observacoes')))
+          data.get('endereco'), data.get('bairro'), data.get('cidade'), data.get('cep'), nasc_dt, data.get('observacoes')))
     db.commit()
     
     # Needs a real logged user for audit in production, using 'system' or passed user
@@ -374,12 +382,21 @@ def manage_dizimista(id):
         dados_anteriores = dict(db.execute("SELECT * FROM dizimistas WHERE id_dizimista = ?", (id,)).fetchone() or {})
         
         fonetica_str = generate_phonetics(data.get('nome', ''), db)
+        nasc = data.get('data_nascimento')
+        nasc_dt = None
+        if nasc and nasc.strip():
+            try:
+                nasc_dt = datetime.strptime(nasc, '%Y-%m-%d')
+            except:
+                pass
+
         db.execute("""
             UPDATE dizimistas 
-            SET nome=?, cpf=?, telefone=?, email=?, endereco=?, bairro=?, cidade=?, cep=?, observacoes=?, fonetica=?
+            SET nome=?, cpf=?, telefone=?, email=?, endereco=?, bairro=?, cidade=?, cep=?, observacoes=?, fonetica=?, data_nascimento=?
             WHERE id_dizimista=?
         """, (data.get('nome'), cpf, data.get('telefone'), data.get('email'), 
-              data.get('endereco'), data.get('bairro'), data.get('cidade'), data.get('cep'), data.get('observacoes'), fonetica_str, id))
+              data.get('endereco'), data.get('bairro'), data.get('cidade'), data.get('cep'), data.get('observacoes'), 
+              fonetica_str, nasc_dt, id))
         db.commit()
         
         user_id = data.get('user_id', 'sistema')

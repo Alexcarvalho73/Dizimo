@@ -504,6 +504,7 @@ const app = {
         document.getElementById('diz-bairro').value = '';
         document.getElementById('diz-cidade').value = '';
         document.getElementById('diz-cep').value = '';
+        document.getElementById('diz-nascimento').value = '';
         document.getElementById('diz-observacoes').value = '';
 
         const cpfInput = document.getElementById('diz-cpf');
@@ -533,6 +534,7 @@ const app = {
                 bairro: document.getElementById('diz-bairro').value,
                 cidade: document.getElementById('diz-cidade').value,
                 cep: document.getElementById('diz-cep').value,
+                data_nascimento: document.getElementById('diz-nascimento').value,
                 observacoes: document.getElementById('diz-observacoes').value,
                 user_id: this.state.user.id_usuario
             };
@@ -570,6 +572,10 @@ const app = {
         document.getElementById('diz-bairro').value = d.bairro || '';
         document.getElementById('diz-cidade').value = d.cidade || '';
         document.getElementById('diz-cep').value = d.cep || '';
+        // Format date YYYY-MM-DD for input date
+        let nasc = d.data_nascimento;
+        if (nasc && nasc.includes(' ')) nasc = nasc.split(' ')[0]; // Handle timestamps if any
+        document.getElementById('diz-nascimento').value = nasc || '';
         document.getElementById('diz-observacoes').value = d.observacoes || '';
     },
 
