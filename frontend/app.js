@@ -948,14 +948,69 @@ const app = {
             const res = await app.authFetch(`${API_URL}/permissoes`);
             if(res.ok) {
                 const permissoes = await res.json();
-                permissoes.forEach(p => {
+
+                // Definição dos grupos de permissões
+                const grupos = [
+                    {
+                        label: '📋 Dizimistas',
+                        keywords: ['Dizimista']
+                    },
+                    {
+                        label: '💰 Lançamentos',
+                        keywords: ['Lançamento']
+                    },
+                    {
+                        label: '👥 Usuários',
+                        keywords: ['Usuário', 'Perfil', 'Usuários', 'Perfis']
+                    },
+                    {
+                        label: '⚙️ Outros',
+                        keywords: [] // tudo que não foi agrupado
+                    }
+                ];
+
+                const atribuidas = new Set();
+
+                // Renderizar cada grupo exceto "Outros"
+                grupos.slice(0, -1).forEach(grupo => {
+                    const itens = permissoes.filter(p =>
+                        grupo.keywords.some(kw => p.descricao.includes(kw))
+                    );
+                    if (itens.length === 0) return;
+                    itens.forEach(p => atribuidas.add(p.id_permissao));
+
                     container.innerHTML += `
-                        <div class="permission-item">
-                            <input type="checkbox" id="perm-${p.id_permissao}" value="${p.id_permissao}">
-                            <label for="perm-${p.id_permissao}">${p.descricao}</label>
+                        <div class="perm-group">
+                            <div class="perm-group-header">${grupo.label}</div>
+                            <div class="perm-group-items">
+                                ${itens.map(p => `
+                                    <div class="permission-item">
+                                        <input type="checkbox" id="perm-${p.id_permissao}" value="${p.id_permissao}">
+                                        <label for="perm-${p.id_permissao}">${p.descricao.replace(/Visualizar|Criar|Editar|Excluir/g, m => `<strong>${m}</strong>`)}</label>
+                                    </div>
+                                `).join('')}
+                            </div>
                         </div>
                     `;
                 });
+
+                // Grupo "Outros" — permissões não atribuídas a nenhum grupo
+                const outros = permissoes.filter(p => !atribuidas.has(p.id_permissao));
+                if (outros.length > 0) {
+                    container.innerHTML += `
+                        <div class="perm-group">
+                            <div class="perm-group-header">⚙️ Outros</div>
+                            <div class="perm-group-items">
+                                ${outros.map(p => `
+                                    <div class="permission-item">
+                                        <input type="checkbox" id="perm-${p.id_permissao}" value="${p.id_permissao}">
+                                        <label for="perm-${p.id_permissao}">${p.descricao}</label>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
             }
         } catch(e) {}
 
