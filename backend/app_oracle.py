@@ -10,9 +10,57 @@ from flask import Flask, request, jsonify, g
 from flask_cors import CORS
 import bcrypt
 from datetime import datetime
+from functools import wraps
 
 app = Flask(__name__, static_folder='../frontend', static_url_path='')
 CORS(app)
+
+def requires_permission(permission_name):
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            user_id = request.headers.get('X-User-Id')
+            if not user_id:
+                return jsonify({'error': 'Usuário não identificado. Re-faça o login.'}), 401
+            
+            db = get_db()
+            # Admin costuma ter tudo liberatdo por padrão se id_perfil=1 (opcional)
+            user = db.execute("SELECT id_perfil FROM usuarios WHERE id_usuario = ?", (user_id,)).fetchone()
+            if not user:
+                 return jsonify({'error': 'Usuário não encontrado.'}), 401
+            
+            # Se for admin (perfil 1), libera direto
+            if user['id_perfil'] == 1:
+                return f(*args, **kwargs)
+
+            # Check if user has permission
+            has = db.execute("""
+                SELECT COUNT(*) 
+                FROM perfil_permissao pp
+                JOIN permissoes per ON pp.id_permissao = per.id_permissao
+                WHERE pp.id_perfil = ? AND per.descricao = ?
+            """, (user['id_perfil'], permission_name)).fetchone()
+            
+            if not has or has[0] == 0:
+                return jsonify({'error': f'Sem permissão: {permission_name}'}), 403
+            
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+
+def check_permission_backend(permission_name):
+    user_id = request.headers.get('X-User-Id')
+    if not user_id: return False
+    db = get_db()
+    user = db.execute("SELECT id_perfil FROM usuarios WHERE id_usuario = ?", (user_id,)).fetchone()
+    if not user: return False
+    if user['id_perfil'] == 1: return True
+    has = db.execute("""
+        SELECT COUNT(*) FROM perfil_permissao pp
+        JOIN permissoes per ON pp.id_permissao = per.id_permissao
+        WHERE pp.id_perfil = ? AND per.descricao = ?
+    """, (user['id_perfil'], permission_name)).fetchone()
+    return has and has[0] > 0
 
 @app.route('/')
 def index():
@@ -244,6 +292,7 @@ def change_password():
 
 # --- Dizimistas Routes ---
 @app.route('/api/dizimistas', methods=['GET'])
+@requires_permission('Visualizar Dizimistas')
 def get_dizimistas():
     q = request.args.get('q')
     p_fonetica = request.args.get('fonetica')
@@ -267,6 +316,7 @@ def get_dizimistas():
     return jsonify([dict(d) for d in dizimistas])
 
 @app.route('/api/dizimistas', methods=['POST'])
+@requires_permission('Criar Dizimistas')
 def create_dizimista():
     data = request.json
     db = get_db()
@@ -297,9 +347,10 @@ def create_dizimista():
 
 @app.route('/api/dizimistas/<int:id>', methods=['PUT', 'DELETE'])
 def manage_dizimista(id):
-    db = get_db()
-    
     if request.method == 'DELETE':
+        if not check_permission_backend('Excluir Dizimistas'):
+             return jsonify({'error': 'Sem permissão para excluir dizimistas'}), 403
+        db = get_db()
         # Exclusão lógica
         dizimista = db.execute("SELECT * FROM dizimistas WHERE id_dizimista = ?", (id,)).fetchone()
         if not dizimista:
@@ -309,7 +360,10 @@ def manage_dizimista(id):
         return jsonify({'message': 'Removido com sucesso'})
         
     if request.method == 'PUT':
+        if not check_permission_backend('Editar Dizimistas'):
+             return jsonify({'error': 'Sem permissão para editar dizimistas'}), 403
         data = request.json
+        db = get_db()
         cpf = data.get('cpf')
         
         # Check if another user has this CPF
@@ -398,6 +452,7 @@ def handle_perfil_permissoes(id_perfil):
         return jsonify({'message': 'Permissões atualizadas com sucesso'})
 
 @app.route('/api/usuarios', methods=['GET'])
+@requires_permission('Visualizar Usuários')
 def get_usuarios():
     db = get_db()
     query = """
@@ -502,6 +557,7 @@ def manage_missas(id):
 
 # --- Recebimentos Routes ---
 @app.route('/api/recebimentos', methods=['GET'])
+@requires_permission('Visualizar Lançamentos')
 def get_recebimentos():
     db = get_db()
     mes = request.args.get('mes')
@@ -534,6 +590,7 @@ def get_recebimentos():
     return jsonify([dict(r) for r in recebimentos])
 
 @app.route('/api/recebimentos', methods=['POST'])
+@requires_permission('Criar Lançamentos')
 def create_recebimento():
     data = request.json
     db = get_db()
@@ -557,6 +614,7 @@ def create_recebimento():
     return jsonify({'message': 'Atendimento registrado com sucesso', 'id': 0}), 201
 
 @app.route('/api/recebimentos/<int:id>', methods=['DELETE'])
+@requires_permission('Excluir Lançamentos')
 def delete_recebimento(id):
     """Estorno lógico de recebimento"""
     db = get_db()

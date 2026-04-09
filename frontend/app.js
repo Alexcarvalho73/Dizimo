@@ -10,6 +10,14 @@ const app = {
         token: null
     },
 
+    async authFetch(url, options = {}) {
+        const headers = options.headers || {};
+        if (this.state.user) {
+            headers['X-User-Id'] = this.state.user.id_usuario;
+        }
+        return fetch(url, { ...options, headers });
+    },
+
     init() {
         this.container = document.getElementById('app-container');
         
@@ -37,7 +45,7 @@ const app = {
             const err = document.getElementById('login-error');
             
             try {
-                const res = await fetch(`${API_URL}/auth/login`, {
+                const res = await app.authFetch(`${API_URL}/auth/login`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({login: u, senha: p})
@@ -146,7 +154,7 @@ const app = {
                 }
 
                 try {
-                    const res = await fetch(`${API_URL}/auth/change-password`, {
+                    const res = await app.authFetch(`${API_URL}/auth/change-password`, {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({
@@ -235,7 +243,7 @@ const app = {
 
     async loadDashboard() {
         try {
-            const res = await fetch(`${API_URL}/dashboard`);
+            const res = await app.authFetch(`${API_URL}/dashboard`);
             if(res.ok) {
                 const data = await res.json();
                 document.getElementById('stat-dia').textContent = `R$ ${data.total_dia.toFixed(2)}`;
@@ -244,7 +252,7 @@ const app = {
             }
 
             // Load recent list
-            const recRes = await fetch(`${API_URL}/recebimentos`);
+            const recRes = await app.authFetch(`${API_URL}/recebimentos`);
             if (recRes.ok) {
                 const recs = await recRes.json();
                 const tbody = document.getElementById('tb-recent');
@@ -273,7 +281,7 @@ const app = {
             } else if (q) {
                 url += `?q=${encodeURIComponent(q)}`;
             }
-            const res = await fetch(url);
+            const res = await app.authFetch(url);
             if (res.ok) {
                 const dizimistas = await res.json();
                 const tbody = document.getElementById('tb-dizimistas');
@@ -313,7 +321,7 @@ const app = {
                         document.getElementById('modal-historico').style.display = 'flex';
                         
                         try {
-                            const res = await fetch(`${API_URL}/recebimentos?id_dizimista=${id}`);
+                            const res = await app.authFetch(`${API_URL}/recebimentos?id_dizimista=${id}`);
                             if (res.ok) {
                                 const recs = await res.json();
                                 tbodyHist.innerHTML = '';
@@ -533,7 +541,7 @@ const app = {
             const url = id ? `${API_URL}/dizimistas/${id}` : `${API_URL}/dizimistas`;
 
             try {
-                const res = await fetch(url, {
+                const res = await app.authFetch(url, {
                     method: method,
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify(data)
@@ -597,7 +605,7 @@ const app = {
             timeout = setTimeout(async () => {
                 try {
                     let url = `${API_URL}/dizimistas?${useFonetica ? 'fonetica' : 'q'}=${encodeURIComponent(q)}`;
-                    const res = await fetch(url);
+                    const res = await app.authFetch(url);
                     if (res.ok) {
                         const list = await res.json();
                         resultsDiv.innerHTML = '';
@@ -633,7 +641,7 @@ const app = {
 
         // Load Tipos
         try {
-            const tRes = await fetch(`${API_URL}/tipos-pagamento`);
+            const tRes = await app.authFetch(`${API_URL}/tipos-pagamento`);
             if(tRes.ok) {
                 const tSelect = document.getElementById('rec-tipo');
                 const list = await tRes.json();
@@ -653,7 +661,7 @@ const app = {
             idInput.value = pre.id_dizimista;
             // Fetch name for display
             try {
-                const dRes = await fetch(`${API_URL}/dizimistas/${pre.id_dizimista}`);
+                const dRes = await app.authFetch(`${API_URL}/dizimistas/${pre.id_dizimista}`);
                 if (dRes.ok) {
                     const d = await dRes.json();
                     searchInput.value = d.nome;
@@ -680,7 +688,7 @@ const app = {
             };
 
             try {
-                const res = await fetch(`${API_URL}/recebimentos`, {
+                const res = await app.authFetch(`${API_URL}/recebimentos`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify(data)
@@ -699,7 +707,7 @@ const app = {
 
     async loadUsuarios() {
         try {
-            const res = await fetch(`${API_URL}/usuarios`);
+            const res = await app.authFetch(`${API_URL}/usuarios`);
             if (res.ok) {
                 const usuarios = await res.json();
                 const tbody = document.getElementById('tb-usuarios');
@@ -731,7 +739,7 @@ const app = {
                     btn.addEventListener('click', async (e) => {
                         if(confirm('Deseja inativar este usuário?')) {
                             const id = e.currentTarget.getAttribute('data-id');
-                            await fetch(`${API_URL}/usuarios/${id}`, { method: 'DELETE' });
+                            await app.authFetch(`${API_URL}/usuarios/${id}`, { method: 'DELETE' });
                             this.loadUsuarios();
                             this.showToast('Usuário inativado');
                         }
@@ -745,7 +753,7 @@ const app = {
 
     async loadPerfis() {
         try {
-            const res = await fetch(`${API_URL}/perfis`);
+            const res = await app.authFetch(`${API_URL}/perfis`);
             if (res.ok) {
                 const perfis = await res.json();
                 const tbody = document.getElementById('tb-perfis');
@@ -774,7 +782,7 @@ const app = {
                     btn.addEventListener('click', async (e) => {
                         if(confirm('Deseja excluir este perfil?')) {
                             const id = e.currentTarget.getAttribute('data-id');
-                            const delRes = await fetch(`${API_URL}/perfis/${id}`, { method: 'DELETE' });
+                            const delRes = await app.authFetch(`${API_URL}/perfis/${id}`, { method: 'DELETE' });
                             if(delRes.ok) {
                                 this.loadPerfis();
                                 this.showToast('Perfil excluído');
@@ -800,7 +808,7 @@ const app = {
         document.getElementById('usr-senha').required = true;
         
         try {
-            const res = await fetch(`${API_URL}/perfis`);
+            const res = await app.authFetch(`${API_URL}/perfis`);
             if(res.ok) {
                 const select = document.getElementById('usr-perfil');
                 select.innerHTML = '<option value="">Selecione...</option>';
@@ -830,7 +838,7 @@ const app = {
             const url = id ? `${API_URL}/usuarios/${id}` : `${API_URL}/usuarios`;
 
             try {
-                const res = await fetch(url, {
+                const res = await app.authFetch(url, {
                     method: method,
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify(data)
@@ -875,7 +883,7 @@ const app = {
         container.innerHTML = '';
         
         try {
-            const res = await fetch(`${API_URL}/permissoes`);
+            const res = await app.authFetch(`${API_URL}/permissoes`);
             if(res.ok) {
                 const permissoes = await res.json();
                 permissoes.forEach(p => {
@@ -902,7 +910,7 @@ const app = {
             const url = id ? `${API_URL}/perfis/${id}` : `${API_URL}/perfis`;
 
             try {
-                const res = await fetch(url, {
+                const res = await app.authFetch(url, {
                     method: method,
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({descricao: desc})
@@ -913,7 +921,7 @@ const app = {
                     const targetId = id || savedPerfil.id;
                     
                     const checkedPerms = Array.from(document.querySelectorAll('.permission-item input:checked')).map(cb => cb.value);
-                    await fetch(`${API_URL}/perfis/${targetId}/permissoes`, {
+                    await app.authFetch(`${API_URL}/perfis/${targetId}/permissoes`, {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({permissoes: checkedPerms})
@@ -936,7 +944,7 @@ const app = {
         document.getElementById('prf-descricao').value = p.descricao;
         
         try {
-            const res = await fetch(`${API_URL}/perfis/${p.id_perfil}/permissoes`);
+            const res = await app.authFetch(`${API_URL}/perfis/${p.id_perfil}/permissoes`);
             if(res.ok) {
                 const checkedIds = await res.json();
                 const setPerms = () => {
@@ -976,7 +984,7 @@ const app = {
 
             const selectFiltroDiz = document.getElementById('filtro-dizimista');
             if (selectFiltroDiz && selectFiltroDiz.options.length <= 1) {
-                const dRes = await fetch(`${API_URL}/dizimistas`);
+                const dRes = await app.authFetch(`${API_URL}/dizimistas`);
                 if(dRes.ok) {
                     const list = await dRes.json();
                     list.forEach(d => {
@@ -988,7 +996,7 @@ const app = {
                 }
             }
 
-            const res = await fetch(url);
+            const res = await app.authFetch(url);
             if (!res.ok) return;
             const recs = await res.json();
 
@@ -1026,7 +1034,7 @@ const app = {
                 btn.addEventListener('click', async (e) => {
                     if (confirm('Confirma o estorno deste lançamento?')) {
                         const id = e.currentTarget.getAttribute('data-id');
-                        const res = await fetch(`${API_URL}/recebimentos/${id}`, { method: 'DELETE' });
+                        const res = await app.authFetch(`${API_URL}/recebimentos/${id}`, { method: 'DELETE' });
                         if (res.ok) {
                             this.showToast('Estornado com sucesso');
                             this.loadRecebimentosList(
@@ -1072,7 +1080,7 @@ const app = {
 
     async loadMissas() {
         try {
-            const res = await fetch(`${API_URL}/missas`);
+            const res = await app.authFetch(`${API_URL}/missas`);
             if (!res.ok) return;
             const missas = await res.json();
             const tbody = document.getElementById('tb-missas');
@@ -1113,7 +1121,7 @@ const app = {
                 btn.addEventListener('click', async (e) => {
                     if (confirm('Excluir esta missa?')) {
                         const id = e.currentTarget.getAttribute('data-id');
-                        await fetch(`${API_URL}/missas/${id}`, { method: 'DELETE' });
+                        await app.authFetch(`${API_URL}/missas/${id}`, { method: 'DELETE' });
                         this.showToast('Missa excluída');
                         this.loadMissas();
                     }
@@ -1150,7 +1158,7 @@ const app = {
             const method = id ? 'PUT' : 'POST';
             const url = id ? `${API_URL}/missas/${id}` : `${API_URL}/missas`;
             try {
-                const res = await fetch(url, {
+                const res = await app.authFetch(url, {
                     method,
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
