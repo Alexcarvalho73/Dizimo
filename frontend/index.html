@@ -258,11 +258,17 @@
         </div>
         <form id="form-recebimento" class="form-layout glass-panel mt-4">
             <div class="form-row">
-                <div class="input-group">
+                <div class="input-group" style="position: relative;">
                     <label>Dizimista*</label>
-                    <select id="rec-dizimista" required>
-                        <option value="">Selecione...</option>
-                    </select>
+                    <div class="search-bar" style="display: flex; gap: 5px; margin-top: 0;">
+                        <div class="input-wrapper" style="flex: 1;">
+                            <i class="ph ph-user"></i>
+                            <input type="text" id="rec-dizimista-search" placeholder="Digite nome ou CPF..." autocomplete="off">
+                            <input type="hidden" id="rec-dizimista-id">
+                        </div>
+                        <button class="btn btn-secondary" id="rec-btn-toggle-fonetica" type="button" title="Busca Fonética" style="padding: 0.5rem;"><i class="ph ph-waveform"></i></button>
+                    </div>
+                    <div id="rec-dizimista-results" class="autocomplete-results" style="display: none;"></div>
                 </div>
                 <div class="input-group">
                     <label>Valor (R$)*</label>

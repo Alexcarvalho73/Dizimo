@@ -501,24 +501,78 @@ const app = {
     },
 
     async setupLancarRecebimento() {
-        // Load Dizimistas selector
-        try {
-            const dRes = await fetch(`${API_URL}/dizimistas`);
-            if(dRes.ok) {
-                const dizSelect = document.getElementById('rec-dizimista');
-                const list = await dRes.json();
-                list.forEach(d => {
-                    const opt = document.createElement('option');
-                    opt.value = d.id_dizimista;
-                    opt.textContent = `${d.nome} (${d.cpf})`;
-                    dizSelect.appendChild(opt);
-                });
+        const searchInput = document.getElementById('rec-dizimista-search');
+        const idInput = document.getElementById('rec-dizimista-id');
+        const resultsDiv = document.getElementById('rec-dizimista-results');
+        const btnToggleFonetica = document.getElementById('rec-btn-toggle-fonetica');
+        let useFonetica = false;
+
+        // Toggle fonetica
+        if (btnToggleFonetica) {
+            btnToggleFonetica.addEventListener('click', () => {
+                useFonetica = !useFonetica;
+                btnToggleFonetica.classList.toggle('btn-primary', useFonetica);
+                btnToggleFonetica.classList.toggle('btn-secondary', !useFonetica);
+                searchInput.placeholder = useFonetica ? "Busca fonética (pelo som)..." : "Digite nome ou CPF...";
+                searchInput.focus();
+                if (searchInput.value.length >= 2) searchInput.dispatchEvent(new Event('input'));
+            });
+        }
+
+        // Autocomplete search
+        let timeout = null;
+        searchInput.addEventListener('input', () => {
+            clearTimeout(timeout);
+            const q = searchInput.value.trim();
+            if (q.length < 2) {
+                resultsDiv.style.display = 'none';
+                return;
             }
 
+            timeout = setTimeout(async () => {
+                try {
+                    let url = `${API_URL}/dizimistas?${useFonetica ? 'fonetica' : 'q'}=${encodeURIComponent(q)}`;
+                    const res = await fetch(url);
+                    if (res.ok) {
+                        const list = await res.json();
+                        resultsDiv.innerHTML = '';
+                        if (list.length === 0) {
+                            resultsDiv.innerHTML = '<div class="autocomplete-item"><i>Nenhum dizimista encontrado</i></div>';
+                        } else {
+                            list.forEach(d => {
+                                const item = document.createElement('div');
+                                item.className = 'autocomplete-item';
+                                item.innerHTML = `<strong>${d.nome}</strong><small>CPF: ${d.cpf || '-'} | Cel: ${d.telefone || '-'}</small>`;
+                                item.addEventListener('click', () => {
+                                    searchInput.value = d.nome;
+                                    idInput.value = d.id_dizimista;
+                                    resultsDiv.style.display = 'none';
+                                });
+                                resultsDiv.appendChild(item);
+                            });
+                        }
+                        resultsDiv.style.display = 'block';
+                    }
+                } catch (e) {
+                    console.error("Autocomplete error", e);
+                }
+            }, 300);
+        });
+
+        // Close results on click outside
+        document.addEventListener('click', (e) => {
+            if (!searchInput.contains(e.target) && !resultsDiv.contains(e.target)) {
+                resultsDiv.style.display = 'none';
+            }
+        });
+
+        // Load Tipos
+        try {
             const tRes = await fetch(`${API_URL}/tipos-pagamento`);
             if(tRes.ok) {
                 const tSelect = document.getElementById('rec-tipo');
                 const list = await tRes.json();
+                tSelect.innerHTML = '<option value="">Selecione...</option>';
                 list.forEach(t => {
                     const opt = document.createElement('option');
                     opt.value = t.id_tipo_pagamento;
@@ -526,20 +580,34 @@ const app = {
                     tSelect.appendChild(opt);
                 });
             }
-        } catch (e) {
-            console.error("Error loading selects", e);
-        }
+        } catch (e) { console.error("Error loading types", e); }
 
+        // Prefill logic
         if (this.state.prefillRecebimento) {
-            document.getElementById('rec-dizimista').value = this.state.prefillRecebimento.id_dizimista;
-            document.getElementById('rec-comp').value = this.state.prefillRecebimento.competencia;
+            const pre = this.state.prefillRecebimento;
+            idInput.value = pre.id_dizimista;
+            // Fetch name for display
+            try {
+                const dRes = await fetch(`${API_URL}/dizimistas/${pre.id_dizimista}`);
+                if (dRes.ok) {
+                    const d = await dRes.json();
+                    searchInput.value = d.nome;
+                }
+            } catch(err) {}
+            document.getElementById('rec-comp').value = pre.competencia;
             this.state.prefillRecebimento = null;
         }
 
         document.getElementById('form-recebimento').addEventListener('submit', async (e) => {
             e.preventDefault();
+            const dizId = idInput.value;
+            if (!dizId) {
+                this.showToast('Selecione um dizimista da lista', 'error');
+                return;
+            }
+
             const data = {
-                id_dizimista: document.getElementById('rec-dizimista').value,
+                id_dizimista: dizId,
                 valor: parseFloat(document.getElementById('rec-valor').value),
                 competencia: document.getElementById('rec-comp').value,
                 id_tipo_pagamento: document.getElementById('rec-tipo').value,
