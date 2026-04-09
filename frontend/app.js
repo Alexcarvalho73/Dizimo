@@ -105,6 +105,65 @@ const app = {
                 }
             });
         });
+        // Profile Dropdown logic
+        const profileToggle = document.getElementById('user-profile-toggle');
+        const profileDropdown = document.getElementById('profile-dropdown');
+        if (profileToggle) {
+            profileToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                profileDropdown.classList.toggle('active');
+            });
+        }
+        document.addEventListener('click', () => {
+            if(profileDropdown) profileDropdown.classList.remove('active');
+        });
+
+        // Setup Change Password
+        const btnChangePass = document.getElementById('btn-open-change-pass');
+        if (btnChangePass) {
+            btnChangePass.addEventListener('click', () => {
+                document.getElementById('modal-senha').style.display = 'flex';
+                document.getElementById('form-change-pass').reset();
+            });
+        }
+
+        // Setup dropdown logout
+        profileDropdown.querySelector('.dropdown-item[data-target="logout"]').addEventListener('click', () => this.logout());
+
+        // Setup Change Password Form
+        document.getElementById('form-change-pass').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const senhaAtual = document.getElementById('pass-atual').value;
+            const novaSenha = document.getElementById('pass-nova').value;
+            const confirma = document.getElementById('pass-confirma').value;
+
+            if (novaSenha !== confirma) {
+                this.showToast('As senhas não conferem', 'error');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/auth/change-password`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        id_usuario: this.state.user.id_usuario,
+                        senha_atual: senhaAtual,
+                        nova_senha: novaSenha
+                    })
+                });
+                
+                if (res.ok) {
+                    this.showToast('Senha alterada com sucesso!');
+                    document.getElementById('modal-senha').style.display = 'none';
+                } else {
+                    const err = await res.json();
+                    this.showToast(err.error || 'Erro ao trocar senha', 'error');
+                }
+            } catch (error) {
+                this.showToast('Erro de conexão', 'error');
+            }
+        });
     },
 
     logout() {

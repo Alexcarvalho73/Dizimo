@@ -215,6 +215,33 @@ def login():
     else:
         return jsonify({'error': 'Credenciais inválidas.'}), 401
 
+@app.route('/api/auth/change-password', methods=['POST'])
+def change_password():
+    data = request.json
+    user_id = data.get('id_usuario')
+    senha_atual = data.get('senha_atual')
+    nova_senha = data.get('nova_senha')
+    
+    if not user_id or not senha_atual or not nova_senha:
+        return jsonify({'error': 'Preencha todos os campos.'}), 400
+        
+    db = get_db()
+    user = db.execute("SELECT * FROM usuarios WHERE id_usuario = ?", (user_id,)).fetchone()
+    
+    if not user:
+        return jsonify({'error': 'Usuário não encontrado.'}), 404
+        
+    if not bcrypt.checkpw(senha_atual.encode('utf-8'), user['senha_hash'].encode('utf-8')):
+        return jsonify({'error': 'Senha atual incorreta.'}), 401
+        
+    new_hash = bcrypt.hashpw(nova_senha.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    db.execute("UPDATE usuarios SET senha_hash = ? WHERE id_usuario = ?", (new_hash, user_id))
+    db.commit()
+    
+    log_auditoria(user_id, 'ALTERACAO', 'usuarios', user_id, f"Troca de senha do usuario {user['login']}")
+    
+    return jsonify({'message': 'Senha alterada com sucesso!'})
+
 # --- Dizimistas Routes ---
 @app.route('/api/dizimistas', methods=['GET'])
 def get_dizimistas():
