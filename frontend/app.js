@@ -414,9 +414,10 @@ const app = {
                                         if (btnFastPay) {
                                             btnFastPay.addEventListener('click', (ev) => {
                                                 document.getElementById('modal-historico').style.display = 'none';
-                                                app.state.prefillRecebimento = {
+                                                 app.state.prefillRecebimento = {
                                                     id_dizimista: ev.currentTarget.getAttribute('data-id'),
-                                                    competencia: ev.currentTarget.getAttribute('data-comp')
+                                                    competencia: ev.currentTarget.getAttribute('data-comp'),
+                                                    dizimistaNome: ev.currentTarget.closest('[data-diz-nome]')?.getAttribute('data-diz-nome') || nome
                                                 };
                                                 app.navTo('lancar-recebimento');
                                             });
@@ -628,10 +629,19 @@ const app = {
                                 const item = document.createElement('div');
                                 item.className = 'autocomplete-item';
                                 item.innerHTML = `<strong>${d.nome}</strong><small>CPF: ${d.cpf || '-'} | Cel: ${d.telefone || '-'}</small>`;
-                                item.addEventListener('click', () => {
+                                item.addEventListener('click', async () => {
                                     searchInput.value = d.nome;
                                     idInput.value = d.id_dizimista;
                                     resultsDiv.style.display = 'none';
+
+                                    // Verificar valor de dízimo ofertado
+                                    if (d.valor_dizimo && parseFloat(d.valor_dizimo) > 0) {
+                                        const valFmt = parseFloat(d.valor_dizimo).toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
+                                        const usar = confirm(`💡 Dízimo Ofertado de ${d.nome}: ${valFmt}\n\nDeseja usar esse valor no lançamento?`);
+                                        if (usar) {
+                                            document.getElementById('rec-valor').value = parseFloat(d.valor_dizimo).toFixed(2);
+                                        }
+                                    }
                                 });
                                 resultsDiv.appendChild(item);
                             });
@@ -667,19 +677,30 @@ const app = {
             }
         } catch (e) { console.error("Error loading types", e); }
 
-        // Prefill logic
+        // Prefill logic (when coming from historico)
         if (this.state.prefillRecebimento) {
             const pre = this.state.prefillRecebimento;
             idInput.value = pre.id_dizimista;
-            // Fetch name for display
+            // Fetch name and valor_dizimo for display
             try {
                 const dRes = await app.authFetch(`${API_URL}/dizimistas/${pre.id_dizimista}`);
                 if (dRes.ok) {
                     const d = await dRes.json();
                     searchInput.value = d.nome;
+                    // Sugerir valor ofertado automaticamente
+                    if (d.valor_dizimo && parseFloat(d.valor_dizimo) > 0) {
+                        const valFmt = parseFloat(d.valor_dizimo).toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
+                        const usar = confirm(`💡 Dízimo Ofertado de ${d.nome}: ${valFmt}\n\nDeseja usar esse valor no lançamento?`);
+                        if (usar) {
+                            document.getElementById('rec-valor').value = parseFloat(d.valor_dizimo).toFixed(2);
+                        }
+                    }
                 }
             } catch(err) {}
             document.getElementById('rec-comp').value = pre.competencia;
+            // Guardar id para retornar ao histórico após salvar
+            this.state.prefillOrigemHistoricoId = pre.id_dizimista;
+            this.state.prefillOrigemHistoricoNome = pre.dizimistaNome || '';
             this.state.prefillRecebimento = null;
         }
 
@@ -707,7 +728,23 @@ const app = {
                 });
                 if(res.ok) {
                     this.showToast('Recebimento registrado!');
-                    this.navTo('dashboard');
+                    // Se veio do histórico de um dizimista, retornar para lá
+                    const origemId = this.state.prefillOrigemHistoricoId;
+                    const origemNome = this.state.prefillOrigemHistoricoNome;
+                    this.state.prefillOrigemHistoricoId = null;
+                    this.state.prefillOrigemHistoricoNome = null;
+                    if (origemId) {
+                        this.navTo('dizimistas');
+                        setTimeout(() => {
+                            // Reabrir modal de histórico atualizado
+                            const fakeBtn = document.createElement('button');
+                            fakeBtn.setAttribute('data-id', origemId);
+                            fakeBtn.setAttribute('data-nome', origemNome);
+                            this.openHistoricoModal(origemId, origemNome);
+                        }, 300);
+                    } else {
+                        this.navTo('dashboard');
+                    }
                 } else {
                     this.showToast('Erro ao lançar pagamento', 'error');
                 }
