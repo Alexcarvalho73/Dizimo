@@ -158,7 +158,9 @@ const app = {
                     
                     if (res.ok) {
                         this.showToast('Senha alterada com sucesso!');
-                        document.getElementById('modal-senha').style.display = 'none';
+                        const modal = document.getElementById('modal-senha');
+                        if (modal) modal.style.display = 'none';
+                        changePassForm.reset();
                     } else {
                         const err = await res.json();
                         this.showToast(err.error || 'Erro ao trocar senha', 'error');
