@@ -574,7 +574,10 @@ const app = {
         document.getElementById('diz-cep').value = d.cep || '';
         // Format date YYYY-MM-DD for input date
         let nasc = d.data_nascimento;
-        if (nasc && nasc.includes(' ')) nasc = nasc.split(' ')[0]; // Handle timestamps if any
+        if (nasc) {
+            if (nasc.includes('T')) nasc = nasc.split('T')[0];
+            if (nasc.includes(' ')) nasc = nasc.split(' ')[0];
+        }
         document.getElementById('diz-nascimento').value = nasc || '';
         document.getElementById('diz-observacoes').value = d.observacoes || '';
     },

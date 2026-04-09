@@ -9,11 +9,20 @@ import tempfile
 from flask import Flask, request, jsonify, g
 from flask_cors import CORS
 import bcrypt
-from datetime import datetime
+from datetime import datetime, date
 from functools import wraps
 
 app = Flask(__name__, static_folder='../frontend', static_url_path='')
 CORS(app)
+
+# Custom JSON Provider for Flask >= 2.2 to handle datetime objects
+class CustomJSONProvider(app.json_provider_class):
+    def default(self, obj):
+        if isinstance(obj, (datetime, date)):
+            return obj.isoformat()
+        return super().default(obj)
+
+app.json = CustomJSONProvider(app)
 
 def requires_permission(permission_name):
     def decorator(f):
