@@ -44,13 +44,13 @@ def requires_permission(permission_name):
 
             # Check if user has permission
             has = db.execute("""
-                SELECT COUNT(*) 
+                SELECT COUNT(*) as total
                 FROM perfil_permissao pp
                 JOIN permissoes per ON pp.id_permissao = per.id_permissao
                 WHERE pp.id_perfil = ? AND per.descricao = ?
             """, (user['id_perfil'], permission_name)).fetchone()
             
-            if not has or has[0] == 0:
+            if not has or has['total'] == 0:
                 return jsonify({'error': f'Sem permissão: {permission_name}'}), 403
             
             return f(*args, **kwargs)
@@ -65,11 +65,11 @@ def check_permission_backend(permission_name):
     if not user: return False
     if user['id_perfil'] == 1: return True
     has = db.execute("""
-        SELECT COUNT(*) FROM perfil_permissao pp
+        SELECT COUNT(*) as total FROM perfil_permissao pp
         JOIN permissoes per ON pp.id_permissao = per.id_permissao
         WHERE pp.id_perfil = ? AND per.descricao = ?
     """, (user['id_perfil'], permission_name)).fetchone()
-    return has and has[0] > 0
+    return has and has['total'] > 0
 
 @app.route('/')
 def index():
