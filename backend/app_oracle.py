@@ -332,6 +332,15 @@ def get_dizimistas():
         dizimistas = db.execute("SELECT * FROM dizimistas WHERE status = 1 ORDER BY nome").fetchall()
     return jsonify([dict(d) for d in dizimistas])
 
+@app.route('/api/dizimistas/<int:id>', methods=['GET'])
+@requires_permission('Visualizar Dizimistas')
+def get_dizimista(id):
+    db = get_db()
+    diz = db.execute("SELECT * FROM dizimistas WHERE id_dizimista = ?", (id,)).fetchone()
+    if not diz:
+        return jsonify({'error': 'Não encontrado'}), 404
+    return jsonify(dict(diz))
+
 @app.route('/api/dizimistas', methods=['POST'])
 @requires_permission('Criar Dizimistas')
 def create_dizimista():
