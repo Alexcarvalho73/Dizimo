@@ -24,7 +24,8 @@
         <div class="login-page">
             <div class="login-card glass-panel">
                 <div class="login-header">
-                    <img src="Logo.jpg" alt="Logo" style="width: 80px; height: auto; border-radius: 50%; margin-bottom: 1rem; border: 3px solid var(--primary-light);">
+                    <img src="Logo.jpg" alt="Logo"
+                        style="width: 80px; height: auto; border-radius: 50%; margin-bottom: 1rem; border: 3px solid var(--primary-light);">
                     <h2>Controle de Dízimos</h2>
                     <p>Acesse com suas credenciais</p>
                 </div>
@@ -55,7 +56,8 @@
         <div class="layout">
             <aside class="sidebar">
                 <div class="sidebar-brand">
-                    <img src="Logo.jpg" alt="Logo" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(255,255,255,0.3);">
+                    <img src="Logo.jpg" alt="Logo"
+                        style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(255,255,255,0.3);">
                     <span>Imaculado Coração de Maria</span>
                 </div>
                 <nav class="sidebar-nav">
@@ -85,16 +87,19 @@
             <main class="main-content">
                 <header class="topbar">
                     <div style="display: flex; align-items: center; gap: 1rem;">
-                        <button id="mobile-menu-btn" class="btn-icon" style="display: none; font-size: 1.5rem;"><i class="ph ph-list"></i></button>
+                        <button id="mobile-menu-btn" class="btn-icon" style="display: none; font-size: 1.5rem;"><i
+                                class="ph ph-list"></i></button>
                         <h1 id="page-title">Dashboard</h1>
                     </div>
                     <div class="user-profile" id="user-profile-toggle">
                         <span id="header-user-name">Usuário</span>
                         <div class="avatar"><i class="ph ph-user"></i></div>
                         <div class="profile-dropdown" id="profile-dropdown">
-                            <button class="dropdown-item" id="btn-open-change-pass"><i class="ph ph-key"></i> Trocar Senha</button>
+                            <button class="dropdown-item" id="btn-open-change-pass"><i class="ph ph-key"></i> Trocar
+                                Senha</button>
                             <div class="dropdown-divider"></div>
-                            <button class="dropdown-item" data-target="logout"><i class="ph ph-sign-out"></i> Sair</button>
+                            <button class="dropdown-item" data-target="logout"><i class="ph ph-sign-out"></i>
+                                Sair</button>
                         </div>
                     </div>
                 </header>
@@ -178,12 +183,14 @@
                 <i class="ph ph-waveform"></i>
                 <input type="text" id="search-fonetica" placeholder="Som da palavra...">
             </div>
-            <button class="btn btn-secondary" id="btn-toggle-fonetica" type="button" title="Alternar Busca Fonética"><i class="ph ph-waveform"></i> Fonética</button>
+            <button class="btn btn-secondary" id="btn-toggle-fonetica" type="button" title="Alternar Busca Fonética"><i
+                    class="ph ph-waveform"></i> Fonética</button>
         </div>
         <div class="table-responsive mt-4 glass-panel">
             <table class="table">
                 <thead>
                     <tr>
+                        <th>ID</th>
                         <th>Nome</th>
                         <th>CPF</th>
                         <th>Contato</th>
@@ -194,6 +201,9 @@
                 <tbody id="tb-dizimistas">
                 </tbody>
             </table>
+        </div>
+        <div id="pagination-dizimistas" class="pagination-footer mt-4">
+            <!-- JS will populate pagination controls -->
         </div>
     </template>
 
@@ -255,7 +265,8 @@
             </div>
             <div class="input-group" style="margin-bottom: 1.5rem;">
                 <label>Observações</label>
-                <textarea id="diz-observacoes" rows="3" style="width: 100%; padding: 0.75rem 1rem; border: 1px solid var(--border-color); border-radius: var(--radius-md); outline: none; font-size: 0.95rem; background-color: #f8fafc; resize: vertical; font-family: inherit;"></textarea>
+                <textarea id="diz-observacoes" rows="3"
+                    style="width: 100%; padding: 0.75rem 1rem; border: 1px solid var(--border-color); border-radius: var(--radius-md); outline: none; font-size: 0.95rem; background-color: #f8fafc; resize: vertical; font-family: inherit;"></textarea>
             </div>
             <div class="form-actions mt-4">
                 <button type="button" class="btn btn-secondary" onclick="app.navTo('dizimistas')">Cancelar</button>
@@ -268,7 +279,8 @@
     <template id="view-missas">
         <div class="view-header">
             <h2><i class="ph ph-church"></i> Gestão de Missas</h2>
-            <button class="btn btn-primary" onclick="app.navTo('missa-form')"><i class="ph ph-plus"></i> Nova Missa</button>
+            <button class="btn btn-primary" onclick="app.navTo('missa-form')"><i class="ph ph-plus"></i> Nova
+                Missa</button>
         </div>
         <div class="table-responsive mt-4 glass-panel">
             <table class="table">
@@ -290,7 +302,8 @@
     <template id="view-missa-form">
         <div class="view-header">
             <h2><button class="btn-icon" onclick="app.navTo('missas')"><i class="ph ph-arrow-left"></i></button>
-                <span id="title-missa-form">Nova Missa</span></h2>
+                <span id="title-missa-form">Nova Missa</span>
+            </h2>
         </div>
         <form id="form-missa" class="form-layout glass-panel mt-4">
             <input type="hidden" id="missa-id">
@@ -335,7 +348,8 @@
 
     <template id="view-lancar-recebimento">
         <div class="view-header">
-            <h2><button class="btn-icon" onclick="app.voltarDeRecebimento()"><i class="ph ph-arrow-left"></i></button> Novo
+            <h2><button class="btn-icon" onclick="app.voltarDeRecebimento()"><i class="ph ph-arrow-left"></i></button>
+                Novo
                 Recebimento</h2>
         </div>
         <form id="form-recebimento" class="form-layout glass-panel mt-4">
@@ -345,10 +359,12 @@
                     <div class="search-bar" style="display: flex; gap: 5px; margin-top: 0;">
                         <div class="input-wrapper" style="flex: 1;">
                             <i class="ph ph-user"></i>
-                            <input type="text" id="rec-dizimista-search" placeholder="Digite nome ou CPF..." autocomplete="off">
+                            <input type="text" id="rec-dizimista-search" placeholder="Digite nome ou CPF..."
+                                autocomplete="off">
                             <input type="hidden" id="rec-dizimista-id">
                         </div>
-                        <button class="btn btn-secondary" id="rec-btn-toggle-fonetica" type="button" title="Busca Fonética" style="padding: 0.5rem;"><i class="ph ph-waveform"></i></button>
+                        <button class="btn btn-secondary" id="rec-btn-toggle-fonetica" type="button"
+                            title="Busca Fonética" style="padding: 0.5rem;"><i class="ph ph-waveform"></i></button>
                     </div>
                     <div id="rec-dizimista-results" class="autocomplete-results" style="display: none;"></div>
                 </div>
@@ -369,9 +385,38 @@
                     </select>
                 </div>
             </div>
+
+            <!-- Parcelamento -->
+            <div class="parcelas-section glass-panel mt-4">
+                <label class="parcela-section-title"><i class="ph ph-stack"></i> Tipo de Lançamento</label>
+                <div class="parcela-toggle" id="parcela-toggle">
+                    <button type="button" class="parcela-btn active" id="btn-parcela-unica" data-tipo="unica">
+                        <i class="ph ph-check-circle"></i> Para Uma Competência
+                    </button>
+                    <button type="button" class="parcela-btn" id="btn-parcela-multipla" data-tipo="multipla">
+                        <i class="ph ph-stack"></i> Para Várias Competências
+                    </button>
+                </div>
+                <div id="multiplas-options" style="display:none;" class="mt-4">
+                    <div class="form-row">
+                        <div class="input-group">
+                            <label>Quantidade de Competencias*</label>
+                            <input type="number" id="rec-num-parcelas" min="2" max="60" value="2" placeholder="Ex: 3">
+                        </div>
+                        <div class="input-group">
+                            <label>Valor por Competência (calculado)</label>
+                            <div id="rec-preview-parcela" class="parcela-preview-box">—</div>
+                        </div>
+                    </div>
+                    <div id="rec-preview-lista" class="parcela-preview-lista"></div>
+                </div>
+            </div>
+
             <div class="form-actions mt-4">
                 <button type="button" class="btn btn-secondary" onclick="app.voltarDeRecebimento()">Cancelar</button>
-                <button type="submit" class="btn btn-primary">Registrar Pagamento</button>
+                <button type="submit" class="btn btn-primary" id="btn-registrar-pagamento">
+                    <i class="ph ph-paper-plane-tilt"></i> Registrar Pagamento
+                </button>
             </div>
         </form>
     </template>
@@ -538,6 +583,7 @@
                 <tbody id="tb-recebimentos"></tbody>
             </table>
         </div>
+        <div id="pagination-recebimentos" class="pagination-footer mt-4"></div>
     </template>
 
     <!-- View: Missas -->
@@ -642,7 +688,9 @@
         <div class="modal-content" style="max-width: 400px;">
             <div class="modal-header">
                 <h3><i class="ph ph-key"></i> Alterar Senha</h3>
-                <button type="button" class="btn-icon" onclick="document.getElementById('modal-senha').style.display='none'"><i class="ph ph-x"></i></button>
+                <button type="button" class="btn-icon"
+                    onclick="document.getElementById('modal-senha').style.display='none'"><i
+                        class="ph ph-x"></i></button>
             </div>
             <div class="modal-body">
                 <form id="form-change-pass">
@@ -659,7 +707,8 @@
                         <input type="password" id="pass-confirma" required>
                     </div>
                     <div class="form-actions">
-                        <button type="button" class="btn btn-secondary" onclick="document.getElementById('modal-senha').style.display='none'">Cancelar</button>
+                        <button type="button" class="btn btn-secondary"
+                            onclick="document.getElementById('modal-senha').style.display='none'">Cancelar</button>
                         <button type="submit" class="btn btn-primary">Alterar Senha</button>
                     </div>
                 </form>

@@ -804,3 +804,189 @@ input:focus, select:focus {
     color: var(--text-main);
     font-weight: 600;
 }
+
+/* ===========================
+   Pagination
+   =========================== */
+.pagination-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    margin-top: 1rem;
+}
+
+.pagination-info {
+    font-size: 0.88rem;
+    color: var(--text-secondary);
+}
+
+.pagination-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.pagination-btn {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-main);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.pagination-btn:hover:not(:disabled) {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    transform: translateY(-2px);
+}
+
+.pagination-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.pagination-btn.active {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.pagination-settings {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.88rem;
+    color: var(--text-secondary);
+}
+
+.per-page-select {
+    padding: 0.4rem 0.6rem;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-main);
+    cursor: pointer;
+}
+
+.per-page-select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
+/* ===== Parcelamento ===== */
+.parcelas-section {
+    padding: 1.25rem 1.5rem;
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border-color);
+}
+
+.parcela-section-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+}
+
+.parcela-toggle {
+    display: flex;
+    gap: 0.75rem;
+}
+
+.parcela-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 1.25rem;
+    border-radius: 50px;
+    border: 2px solid var(--border-color);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.parcela-btn:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+.parcela-btn.active {
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+    border-color: transparent;
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(var(--primary-rgb), 0.35);
+}
+
+.parcela-preview-box {
+    padding: 0.65rem 1rem;
+    background: var(--bg-main);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--primary-color);
+    min-height: 2.5rem;
+    display: flex;
+    align-items: center;
+}
+
+.parcela-preview-lista {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: 0.65rem;
+    margin-top: 0.5rem;
+}
+
+.parcela-preview-item {
+    background: var(--bg-main);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    padding: 0.6rem 0.9rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.85rem;
+    transition: border-color 0.2s;
+}
+
+.parcela-preview-item:last-child {
+    border-color: var(--primary-color);
+    background: rgba(var(--primary-rgb), 0.04);
+}
+
+.parcela-preview-item .pi-comp {
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.parcela-preview-item .pi-idx {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.parcela-preview-item .pi-valor {
+    font-weight: 600;
+    color: var(--success-color);
+}
+
+.parcela-preview-item.pi-ajuste .pi-valor::after {
+    content: " (ajuste)";
+    font-size: 0.7rem;
+    color: var(--warning-color, #f59e0b);
+}

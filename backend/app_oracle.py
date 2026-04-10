@@ -313,24 +313,42 @@ def change_password():
 def get_dizimistas():
     q = request.args.get('q')
     p_fonetica = request.args.get('fonetica')
+    page = int(request.args.get('page', 1))
+    per_page = int(request.args.get('per_page', 10))
+    offset = (page - 1) * per_page
+
     db = get_db()
+    base_where = "status = 1"
+    params = []
+
     if p_fonetica:
         f_str = generate_phonetics(p_fonetica, db)
         parts = f_str.split()
         if parts:
-            # Match ANY of the phonetic parts
             conds = " OR ".join(["fonetica LIKE ?" for _ in parts])
             params = [f"%{p}%" for p in parts]
-            query = f"SELECT * FROM dizimistas WHERE status = 1 AND ({conds}) ORDER BY nome"
-            dizimistas = db.execute(query, tuple(params)).fetchall()
+            base_where += f" AND ({conds})"
         else:
-            dizimistas = []
+            return jsonify({"data": [], "total": 0, "page": page, "per_page": per_page})
     elif q:
-        query = "SELECT * FROM dizimistas WHERE status = 1 AND (nome LIKE ? OR cpf LIKE ?) ORDER BY nome"
-        dizimistas = db.execute(query, (f'%{q}%', f'%{q}%')).fetchall()
-    else:
-        dizimistas = db.execute("SELECT * FROM dizimistas WHERE status = 1 ORDER BY nome").fetchall()
-    return jsonify([dict(d) for d in dizimistas])
+        base_where += " AND (nome LIKE ? OR cpf LIKE ?)"
+        params = [f'%{q}%', f'%{q}%']
+
+    # Total de registros
+    count_query = f"SELECT COUNT(*) as total FROM dizimistas WHERE {base_where}"
+    total = db.execute(count_query, tuple(params)).fetchone()['total']
+
+    # Dados paginados
+    data_query = f"SELECT * FROM dizimistas WHERE {base_where} ORDER BY nome OFFSET ? ROWS FETCH NEXT ? ROWS ONLY"
+    data_params = params + [offset, per_page]
+    dizimistas = db.execute(data_query, tuple(data_params)).fetchall()
+
+    return jsonify({
+        "data": [dict(d) for d in dizimistas],
+        "total": int(total),
+        "page": page,
+        "per_page": per_page
+    })
 
 @app.route('/api/dizimistas/<int:id>', methods=['GET'])
 @requires_permission('Visualizar Dizimistas')
@@ -659,6 +677,9 @@ def get_recebimentos():
     mes = request.args.get('mes')
     ano = request.args.get('ano')
     id_dizimista = request.args.get('id_dizimista')
+    page = int(request.args.get('page', 1))
+    per_page = int(request.args.get('per_page', 10))
+    offset = (page - 1) * per_page
 
     where_clauses = ["r.status = 1"]
     params = []
@@ -674,6 +695,17 @@ def get_recebimentos():
         params.append(id_dizimista)
 
     where_str = " AND ".join(where_clauses)
+
+    # Count total
+    count_query = f"""
+        SELECT COUNT(*) as total
+        FROM recebimentos r
+        JOIN dizimistas d ON r.id_dizimista = d.id_dizimista
+        WHERE {where_str}
+    """
+    total = db.execute(count_query, params).fetchone()['total']
+
+    # Get paginated data
     query = f"""
         SELECT r.*, d.nome as dizimista_nome, t.descricao as tipo_pagamento_nome
         FROM recebimentos r
@@ -681,9 +713,17 @@ def get_recebimentos():
         JOIN tipos_pagamento t ON r.id_tipo_pagamento = t.id_tipo_pagamento
         WHERE {where_str}
         ORDER BY r.data_recebimento DESC
+        OFFSET ? ROWS FETCH NEXT ? ROWS ONLY
     """
-    recebimentos = db.execute(query, params).fetchall()
-    return jsonify([dict(r) for r in recebimentos])
+    data_params = params + [offset, per_page]
+    recebimentos = db.execute(query, data_params).fetchall()
+
+    return jsonify({
+        "data": [dict(r) for r in recebimentos],
+        "total": int(total),
+        "page": page,
+        "per_page": per_page
+    })
 
 @app.route('/api/recebimentos', methods=['POST'])
 @requires_permission('Criar Lançamentos')

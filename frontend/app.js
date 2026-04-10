@@ -20,7 +20,7 @@ const app = {
 
     init() {
         this.container = document.getElementById('app-container');
-        
+
         // Restore session
         const savedUser = localStorage.getItem('dizimo_user');
         if (savedUser) {
@@ -43,15 +43,15 @@ const app = {
             const u = document.getElementById('login-user').value;
             const p = document.getElementById('login-pass').value;
             const err = document.getElementById('login-error');
-            
+
             try {
                 const res = await app.authFetch(`${API_URL}/auth/login`, {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({login: u, senha: p})
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ login: u, senha: p })
                 });
                 const data = await res.json();
-                
+
                 if (res.ok) {
                     this.state.user = data.user;
                     localStorage.setItem('dizimo_user', JSON.stringify(data.user));
@@ -70,16 +70,16 @@ const app = {
         const tpl = document.getElementById('tpl-main').content.cloneNode(true);
         this.container.innerHTML = '';
         this.container.appendChild(tpl);
-        
+
         document.getElementById('header-user-name').textContent = this.state.user.nome;
-        
+
         // Mobile Sidebar Logic
         const layout = document.querySelector('.layout');
         const sidebar = document.querySelector('.sidebar');
         const overlay = document.createElement('div');
         overlay.className = 'sidebar-overlay';
         layout.appendChild(overlay);
-        
+
         const menuBtn = document.getElementById('mobile-menu-btn');
         if (menuBtn) {
             menuBtn.addEventListener('click', () => {
@@ -87,7 +87,7 @@ const app = {
                 overlay.classList.add('active');
             });
         }
-        
+
         const closeSidebar = () => {
             sidebar.classList.remove('open');
             overlay.classList.remove('active');
@@ -99,7 +99,7 @@ const app = {
             if (this.state.user.permissoes.includes('Visualizar Usuários')) document.getElementById('nav-usuarios').style.display = 'flex';
             if (this.state.user.permissoes.includes('Gerenciar Perfis')) document.getElementById('nav-perfis').style.display = 'flex';
         }
-        
+
         // Setup nav links
         document.querySelectorAll('.nav-item').forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -123,7 +123,7 @@ const app = {
             });
         }
         document.addEventListener('click', () => {
-            if(profileDropdown) profileDropdown.classList.remove('active');
+            if (profileDropdown) profileDropdown.classList.remove('active');
         });
 
         // Setup Change Password
@@ -156,14 +156,14 @@ const app = {
                 try {
                     const res = await app.authFetch(`${API_URL}/auth/change-password`, {
                         method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             id_usuario: this.state.user.id_usuario,
                             senha_atual: senhaAtual,
                             nova_senha: novaSenha
                         })
                     });
-                    
+
                     if (res.ok) {
                         this.showToast('Senha alterada com sucesso!');
                         const modal = document.getElementById('modal-senha');
@@ -191,16 +191,16 @@ const app = {
         this.state.currentView = viewId;
         const contentArea = document.getElementById('content-area');
         const tpl = document.getElementById(`view-${viewId}`);
-        
+
         if (!tpl) return;
-        
+
         contentArea.innerHTML = '';
         contentArea.appendChild(tpl.content.cloneNode(true));
-        
+
         // Update active state in sidebar
         document.querySelectorAll('.nav-item').forEach(btn => {
             btn.classList.remove('active');
-            if(btn.getAttribute('data-target') === viewId) btn.classList.add('active');
+            if (btn.getAttribute('data-target') === viewId) btn.classList.add('active');
         });
 
         // Initialize view logic
@@ -229,7 +229,12 @@ const app = {
         if (viewId === 'dashboard') this.loadDashboard();
         if (viewId === 'dizimistas') this.loadDizimistas();
         if (viewId === 'novo-dizimista') this.setupNovoDizimista();
-        if (viewId === 'recebimentos') this.loadRecebimentosList();
+        if (viewId === 'recebimentos') {
+            const now = new Date();
+            const mesAtual = String(now.getMonth() + 1).padStart(2, '0');
+            const anoAtual = String(now.getFullYear());
+            this.loadRecebimentosList(mesAtual, anoAtual);
+        }
         if (viewId === 'lancar-recebimento') this.setupLancarRecebimento();
         if (viewId === 'missas') this.loadMissas();
         if (viewId === 'missa-form') this.setupMissaForm();
@@ -244,7 +249,7 @@ const app = {
     async loadDashboard() {
         try {
             const res = await app.authFetch(`${API_URL}/dashboard`);
-            if(res.ok) {
+            if (res.ok) {
                 const data = await res.json();
                 document.getElementById('stat-dia').textContent = `R$ ${data.total_dia.toFixed(2)}`;
                 document.getElementById('stat-mes').textContent = `R$ ${data.total_mes.toFixed(2)}`;
@@ -252,12 +257,13 @@ const app = {
             }
 
             // Load recent list
-            const recRes = await app.authFetch(`${API_URL}/recebimentos`);
+            const recRes = await app.authFetch(`${API_URL}/recebimentos?per_page=5`);
             if (recRes.ok) {
-                const recs = await recRes.json();
+                const response = await recRes.json();
+                const recs = response.data || [];
                 const tbody = document.getElementById('tb-recent');
                 tbody.innerHTML = '';
-                recs.slice(0, 5).forEach(r => { // Show top 5
+                recs.forEach(r => {
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
                         <td>${new Date(r.data_recebimento).toLocaleDateString('pt-BR')}</td>
@@ -273,23 +279,32 @@ const app = {
         }
     },
 
-    async loadDizimistas(q = '', fonetica = '') {
+    async loadDizimistas(q = '', fonetica = '', page = 1, perPage = 10) {
         try {
-            let url = `${API_URL}/dizimistas`;
+            let url = `${API_URL}/dizimistas?page=${page}&per_page=${perPage}`;
             if (fonetica) {
-                url += `?fonetica=${encodeURIComponent(fonetica)}`;
+                url += `&fonetica=${encodeURIComponent(fonetica)}`;
             } else if (q) {
-                url += `?q=${encodeURIComponent(q)}`;
+                url += `&q=${encodeURIComponent(q)}`;
             }
             const res = await app.authFetch(url);
             if (res.ok) {
-                const dizimistas = await res.json();
+                const response = await res.json();
+                const dizimistas = response.data;
+                const total = response.total;
+
                 const tbody = document.getElementById('tb-dizimistas');
                 if (!tbody) return;
                 tbody.innerHTML = '';
+
+                if (dizimistas.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding: 2rem;">Nenhum dizimista encontrado</td></tr>';
+                }
+
                 dizimistas.forEach(d => {
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
+                        <td>${d.id_dizimista}</td>
                         <td><strong>${d.nome}</strong></td>
                         <td>${d.cpf || '-'}</td>
                         <td>${d.telefone || '-'}</td>
@@ -300,6 +315,10 @@ const app = {
                         </td>
                     `;
                     tbody.appendChild(tr);
+                });
+
+                this.renderPagination('pagination-dizimistas', total, page, perPage, (newPage, newPerPage) => {
+                    this.loadDizimistas(q, fonetica, newPage, newPerPage);
                 });
 
                 document.querySelectorAll('.btn-edit-diz').forEach(btn => {
@@ -333,14 +352,14 @@ const app = {
                             btnToggle.classList.remove('btn-secondary');
                             btnToggle.classList.add('btn-primary');
                             searchInput.value = '';
-                            this.loadDizimistas('', foneticaInput.value);
+                            this.loadDizimistas('', foneticaInput.value, 1, perPage);
                         } else {
                             normalWrap.style.display = 'flex';
                             foneticaWrap.style.display = 'none';
                             btnToggle.classList.remove('btn-primary');
                             btnToggle.classList.add('btn-secondary');
                             foneticaInput.value = '';
-                            this.loadDizimistas(searchInput.value, '');
+                            this.loadDizimistas(searchInput.value, '', 1, perPage);
                         }
                     });
                     btnToggle.dataset.listenerAttached = 'true';
@@ -348,7 +367,7 @@ const app = {
 
                 if (searchInput && !searchInput.dataset.listenerAttached) {
                     searchInput.addEventListener('input', (e) => {
-                        this.loadDizimistas(e.target.value, '');
+                        this.loadDizimistas(e.target.value, '', 1, perPage);
                     });
                     searchInput.dataset.listenerAttached = 'true';
                     if (q) {
@@ -357,10 +376,10 @@ const app = {
                         foneticaWrap.style.display = 'none';
                     }
                 }
-                
+
                 if (foneticaInput && !foneticaInput.dataset.listenerAttached) {
                     foneticaInput.addEventListener('input', (e) => {
-                        this.loadDizimistas('', e.target.value);
+                        this.loadDizimistas('', e.target.value, 1, perPage);
                     });
                     foneticaInput.dataset.listenerAttached = 'true';
                     if (fonetica) {
@@ -377,6 +396,72 @@ const app = {
         }
     },
 
+    renderPagination(containerId, total, currentPage, perPage, onPageChange) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        const totalPages = Math.ceil(total / perPage) || 1;
+        const startIdx = total === 0 ? 0 : (currentPage - 1) * perPage + 1;
+        const endIdx = Math.min(currentPage * perPage, total);
+
+        let html = `
+            <div class="pagination-info">
+                Mostrando <strong>${startIdx}</strong> - <strong>${endIdx}</strong> de <strong>${total}</strong> registros
+            </div>
+            <div class="pagination-controls">
+                <button class="pagination-btn" ${currentPage === 1 ? 'disabled' : ''} id="page-prev">
+                    <i class="ph ph-caret-left"></i>
+                </button>
+        `;
+
+        // Render page numbers (simple version: current, and a few around)
+        let startPage = Math.max(1, currentPage - 1);
+        let endPage = Math.min(totalPages, startPage + 2);
+        if (endPage - startPage < 2) startPage = Math.max(1, endPage - 2);
+
+        for (let i = startPage; i <= endPage; i++) {
+            html += `
+                <button class="pagination-btn ${i === currentPage ? 'active' : ''}" data-page="${i}">
+                    ${i}
+                </button>
+            `;
+        }
+
+        html += `
+                <button class="pagination-btn" ${currentPage === totalPages ? 'disabled' : ''} id="page-next">
+                    <i class="ph ph-caret-right"></i>
+                </button>
+            </div>
+            <div class="pagination-settings">
+                <span>Registros por página:</span>
+                <select class="per-page-select" id="per-page-select">
+                    <option value="5" ${perPage === 5 ? 'selected' : ''}>5</option>
+                    <option value="10" ${perPage === 10 ? 'selected' : ''}>10</option>
+                    <option value="20" ${perPage === 20 ? 'selected' : ''}>20</option>
+                    <option value="50" ${perPage === 50 ? 'selected' : ''}>50</option>
+                </select>
+            </div>
+        `;
+
+        container.innerHTML = html;
+
+        // Event listeners
+        const prevBtn = document.getElementById('page-prev');
+        if (prevBtn) prevBtn.onclick = () => onPageChange(currentPage - 1, perPage);
+
+        const nextBtn = document.getElementById('page-next');
+        if (nextBtn) nextBtn.onclick = () => onPageChange(currentPage + 1, perPage);
+
+        container.querySelectorAll('button[data-page]').forEach(btn => {
+            btn.onclick = () => onPageChange(parseInt(btn.getAttribute('data-page')), perPage);
+        });
+
+        const select = document.getElementById('per-page-select');
+        if (select) {
+            select.onchange = (e) => onPageChange(1, parseInt(e.target.value));
+        }
+    },
+
     async openHistoricoModal(id, nome) {
         document.getElementById('hist-nome').textContent = nome;
         const tbodyHist = document.getElementById('tb-hist-pagamentos');
@@ -384,9 +469,10 @@ const app = {
         document.getElementById('modal-historico').style.display = 'flex';
 
         try {
-            const res = await app.authFetch(`${API_URL}/recebimentos?id_dizimista=${id}`);
+            const res = await app.authFetch(`${API_URL}/recebimentos?id_dizimista=${id}&per_page=100`);
             if (res.ok) {
-                const recs = await res.json();
+                const response = await res.json();
+                const recs = response.data || [];
                 tbodyHist.innerHTML = '';
 
                 const grouped = {};
@@ -418,8 +504,8 @@ const app = {
                     mainTr.innerHTML = `
                         <td style="text-align:center; vertical-align:middle;">
                             ${hasItems
-                                ? `<button class="btn-icon btn-toggle-details" style="font-size:1.5rem" title="Ver Detalhes"><i class="ph ph-plus-circle"></i></button>`
-                                : `<button class="btn-icon btn-fast-pay" data-comp="${comp}" data-id="${id}" style="font-size:1.5rem; color:var(--primary-color)" title="Lançar Recebimento"><i class="ph ph-hand-coins"></i></button>`}
+                            ? `<button class="btn-icon btn-toggle-details" style="font-size:1.5rem" title="Ver Detalhes"><i class="ph ph-plus-circle"></i></button>`
+                            : `<button class="btn-icon btn-fast-pay" data-comp="${comp}" data-id="${id}" style="font-size:1.5rem; color:var(--primary-color)" title="Lançar Recebimento"><i class="ph ph-hand-coins"></i></button>`}
                         </td>
                         <td style="vertical-align:middle;"><strong>${comp}</strong></td>
                         <td style="vertical-align:middle; color:${hasItems ? 'var(--success-color)' : 'var(--text-muted)'};font-weight:bold;">
@@ -509,9 +595,9 @@ const app = {
 
         const cpfInput = document.getElementById('diz-cpf');
         cpfInput.addEventListener('input', (e) => {
-            let val = e.target.value.replace(/\D/g, ''); 
+            let val = e.target.value.replace(/\D/g, '');
             if (val.length > 11) val = val.slice(0, 11);
-            
+
             if (val.length > 9) {
                 val = val.replace(/(\d{3})(\d{3})(\d{3})(\d{1,2})/, '$1.$2.$3-$4');
             } else if (val.length > 6) {
@@ -546,10 +632,10 @@ const app = {
             try {
                 const res = await app.authFetch(url, {
                     method: method,
-                    headers: {'Content-Type': 'application/json'},
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data)
                 });
-                if(res.ok) {
+                if (res.ok) {
                     this.showToast(id ? 'Dizimista atualizado com sucesso!' : 'Dizimista cadastrado com sucesso!');
                     this.navTo('dizimistas');
                 } else {
@@ -615,10 +701,11 @@ const app = {
 
             timeout = setTimeout(async () => {
                 try {
-                    let url = `${API_URL}/dizimistas?${useFonetica ? 'fonetica' : 'q'}=${encodeURIComponent(q)}`;
+                    let url = `${API_URL}/dizimistas?${useFonetica ? 'fonetica' : 'q'}=${encodeURIComponent(q)}&per_page=20`;
                     const res = await app.authFetch(url);
                     if (res.ok) {
-                        const list = await res.json();
+                        const response = await res.json();
+                        const list = response.data || [];
                         resultsDiv.innerHTML = '';
                         if (list.length === 0) {
                             resultsDiv.innerHTML = '<div class="autocomplete-item"><i>Nenhum dizimista encontrado</i></div>';
@@ -634,7 +721,7 @@ const app = {
 
                                     // Verificar valor de dízimo ofertado
                                     if (d.valor_dizimo && parseFloat(d.valor_dizimo) > 0) {
-                                        const valFmt = parseFloat(d.valor_dizimo).toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
+                                        const valFmt = parseFloat(d.valor_dizimo).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
                                         const usar = confirm(`💡 Dízimo Ofertado de ${d.nome}: ${valFmt}\n\nDeseja usar esse valor no lançamento?`);
                                         if (usar) {
                                             document.getElementById('rec-valor').value = parseFloat(d.valor_dizimo).toFixed(2);
@@ -662,7 +749,7 @@ const app = {
         // Load Tipos
         try {
             const tRes = await app.authFetch(`${API_URL}/tipos-pagamento`);
-            if(tRes.ok) {
+            if (tRes.ok) {
                 const tSelect = document.getElementById('rec-tipo');
                 const list = await tRes.json();
                 tSelect.innerHTML = '<option value="">Selecione...</option>';
@@ -687,14 +774,14 @@ const app = {
                     searchInput.value = d.nome;
                     // Sugerir valor ofertado automaticamente
                     if (d.valor_dizimo && parseFloat(d.valor_dizimo) > 0) {
-                        const valFmt = parseFloat(d.valor_dizimo).toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
+                        const valFmt = parseFloat(d.valor_dizimo).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
                         const usar = confirm(`💡 Dízimo Ofertado de ${d.nome}: ${valFmt}\n\nDeseja usar esse valor no lançamento?`);
                         if (usar) {
                             document.getElementById('rec-valor').value = parseFloat(d.valor_dizimo).toFixed(2);
                         }
                     }
                 }
-            } catch(err) {}
+            } catch (err) { }
             document.getElementById('rec-comp').value = pre.competencia;
             // Guardar id para retornar ao histórico após salvar
             this.state.prefillOrigemHistoricoId = pre.id_dizimista;
@@ -710,46 +797,182 @@ const app = {
                 return;
             }
 
-            const data = {
-                id_dizimista: dizId,
-                valor: parseFloat(document.getElementById('rec-valor').value),
-                competencia: document.getElementById('rec-comp').value,
-                id_tipo_pagamento: document.getElementById('rec-tipo').value,
-                id_usuario: this.state.user.id_usuario
-            };
+            const valor = parseFloat(document.getElementById('rec-valor').value);
+            const competencia = document.getElementById('rec-comp').value;
+            const idTipo = document.getElementById('rec-tipo').value;
+            const isMult = document.getElementById('btn-parcela-multipla').classList.contains('active');
 
-            try {
-                const res = await app.authFetch(`${API_URL}/recebimentos`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(data)
-                });
-                if(res.ok) {
-                    this.showToast('Recebimento registrado!');
-                    // Se veio do histórico de um dizimista, retornar para lá
-                    const origemId = this.state.prefillOrigemHistoricoId;
-                    const origemNome = this.state.prefillOrigemHistoricoNome;
-                    this.state.prefillOrigemHistoricoId = null;
-                    this.state.prefillOrigemHistoricoNome = null;
-                    if (origemId) {
-                        this.navTo('dizimistas');
-                        setTimeout(() => {
-                            // Reabrir modal de histórico atualizado
-                            const fakeBtn = document.createElement('button');
-                            fakeBtn.setAttribute('data-id', origemId);
-                            fakeBtn.setAttribute('data-nome', origemNome);
-                            this.openHistoricoModal(origemId, origemNome);
-                        }, 300);
-                    } else {
-                        this.navTo('dashboard');
-                    }
-                } else {
-                    this.showToast('Erro ao lançar pagamento', 'error');
+            // --- Validação de competência formato MM/AAAA ---
+            if (!/^\d{2}\/\d{4}$/.test(competencia)) {
+                this.showToast('Competência inválida. Use o formato MM/AAAA', 'error');
+                return;
+            }
+
+            // Montar lista de parcelas a enviar
+            let parcelas = [];
+            if (!isMult) {
+                // Parcela única
+                parcelas = [{ valor, competencia }];
+            } else {
+                const numParcelas = parseInt(document.getElementById('rec-num-parcelas').value);
+                if (!numParcelas || numParcelas < 2) {
+                    this.showToast('Informe pelo menos 2 competencias', 'error');
+                    return;
                 }
-            } catch (error) {
-                this.showToast('Erro de conexão', 'error');
+                parcelas = this._calcularParcelas(valor, competencia, numParcelas);
+            }
+
+            // Confirmar antes de enviar múltiplas
+            if (parcelas.length > 1) {
+                const total = parcelas.reduce((s, p) => s + p.valor, 0);
+                const lista = parcelas.map((p, i) => `  ${i + 1}. ${p.competencia} → R$ ${p.valor.toFixed(2).replace('.', ',')}`).join('\n');
+                const ok = confirm(`Serão lançadas ${parcelas.length} parcelas:\n\n${lista}\n\nTotal: R$ ${total.toFixed(2).replace('.', ',')}\n\nConfirmar?`);
+                if (!ok) return;
+            }
+
+            const btn = document.getElementById('btn-registrar-pagamento');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="ph ph-circle-notch ph-spin"></i> Enviando...';
+
+            let erros = 0;
+            for (const parcela of parcelas) {
+                try {
+                    const res = await app.authFetch(`${API_URL}/recebimentos`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            id_dizimista: dizId,
+                            valor: parcela.valor,
+                            competencia: parcela.competencia,
+                            id_tipo_pagamento: idTipo,
+                            id_usuario: this.state.user.id_usuario
+                        })
+                    });
+                    if (!res.ok) erros++;
+                } catch {
+                    erros++;
+                }
+            }
+
+            btn.disabled = false;
+            btn.innerHTML = '<i class="ph ph-paper-plane-tilt"></i> Registrar Pagamento';
+
+            if (erros === 0) {
+                this.showToast(parcelas.length > 1
+                    ? `${parcelas.length} parcelas registradas com sucesso!`
+                    : 'Recebimento registrado!');
+            } else {
+                this.showToast(`${erros} de ${parcelas.length} parcelas falharam`, 'error');
+            }
+
+            const origemId = this.state.prefillOrigemHistoricoId;
+            const origemNome = this.state.prefillOrigemHistoricoNome;
+            this.state.prefillOrigemHistoricoId = null;
+            this.state.prefillOrigemHistoricoNome = null;
+            if (origemId) {
+                this.navTo('dizimistas');
+                setTimeout(() => { this.openHistoricoModal(origemId, origemNome); }, 300);
+            } else {
+                this.navTo('dashboard');
             }
         });
+
+        // ---- Parcelamento: toggle e preview ----
+        this._setupParcelamentoUI();
+    },
+
+    /**
+     * Configura os botões de toggle e o preview de parcelas.
+     * Separado para não poluir setupLancarRecebimento.
+     */
+    _setupParcelamentoUI() {
+        const btnUnica = document.getElementById('btn-parcela-unica');
+        const btnMultipla = document.getElementById('btn-parcela-multipla');
+        const multipDiv = document.getElementById('multiplas-options');
+        const numInput = document.getElementById('rec-num-parcelas');
+        const valorInput = document.getElementById('rec-valor');
+        const compInput = document.getElementById('rec-comp');
+
+        const atualizarPreview = () => {
+            if (!btnMultipla.classList.contains('active')) return;
+            const valor = parseFloat(valorInput.value);
+            const comp = compInput.value;
+            const num = parseInt(numInput.value);
+            if (!valor || !comp || !num || num < 2 || !/^\d{2}\/\d{4}$/.test(comp)) {
+                document.getElementById('rec-preview-parcela').textContent = '—';
+                document.getElementById('rec-preview-lista').innerHTML = '';
+                return;
+            }
+            const parcelas = this._calcularParcelas(valor, comp, num);
+            // Preview do valor base
+            document.getElementById('rec-preview-parcela').textContent =
+                `R$ ${parcelas[0].valor.toFixed(2).replace('.', ',')}`;
+            // Lista visual
+            const lista = document.getElementById('rec-preview-lista');
+            lista.innerHTML = '';
+            parcelas.forEach((p, i) => {
+                const isUltima = i === parcelas.length - 1;
+                const div = document.createElement('div');
+                div.className = 'parcela-preview-item' + (isUltima && parcelas.length > 1 ? ' pi-ajuste' : '');
+                div.innerHTML = `
+                    <span class="pi-idx">${i + 1}ª parcela</span>
+                    <span class="pi-comp">${p.competencia}</span>
+                    <span class="pi-valor">R$ ${p.valor.toFixed(2).replace('.', ',')}</span>
+                `;
+                lista.appendChild(div);
+            });
+        };
+
+        btnUnica.addEventListener('click', () => {
+            btnUnica.classList.add('active');
+            btnMultipla.classList.remove('active');
+            multipDiv.style.display = 'none';
+        });
+        btnMultipla.addEventListener('click', () => {
+            btnMultipla.classList.add('active');
+            btnUnica.classList.remove('active');
+            multipDiv.style.display = 'block';
+            atualizarPreview();
+        });
+        numInput.addEventListener('input', atualizarPreview);
+        valorInput.addEventListener('input', atualizarPreview);
+        compInput.addEventListener('input', atualizarPreview);
+    },
+
+    /**
+     * Dado um valor total, uma competência inicial (MM/AAAA) e um número de parcelas,
+     * retorna um array { valor, competencia } com a divisão exata.
+     * A última parcela absorve a diferença de arredondamento.
+     */
+    _calcularParcelas(valorTotal, competenciaInicial, numParcelas) {
+        // Valor base arredondado para baixo (2 casas)
+        const base = Math.floor((valorTotal / numParcelas) * 100) / 100;
+        const [mesStr, anoStr] = competenciaInicial.split('/');
+        let mes = parseInt(mesStr);
+        let ano = parseInt(anoStr);
+
+        const parcelas = [];
+        let somaAteAgora = 0;
+
+        for (let i = 0; i < numParcelas; i++) {
+            const compFormatada = `${String(mes).padStart(2, '0')}/${ano}`;
+            let valorParcela;
+
+            if (i === numParcelas - 1) {
+                // Última parcela: recebe o restante exato para garantir soma perfeita
+                valorParcela = Math.round((valorTotal - somaAteAgora) * 100) / 100;
+            } else {
+                valorParcela = base;
+                somaAteAgora = Math.round((somaAteAgora + base) * 100) / 100;
+            }
+
+            parcelas.push({ valor: valorParcela, competencia: compFormatada });
+
+            // Avançar mês
+            mes++;
+            if (mes > 12) { mes = 1; ano++; }
+        }
+        return parcelas;
     },
 
     voltarDeRecebimento() {
@@ -796,10 +1019,10 @@ const app = {
                         setTimeout(() => this.fillUsuarioForm(usr), 100);
                     });
                 });
-                
+
                 document.querySelectorAll('.btn-del-usr').forEach(btn => {
                     btn.addEventListener('click', async (e) => {
-                        if(confirm('Deseja inativar este usuário?')) {
+                        if (confirm('Deseja inativar este usuário?')) {
                             const id = e.currentTarget.getAttribute('data-id');
                             await app.authFetch(`${API_URL}/usuarios/${id}`, { method: 'DELETE' });
                             this.loadUsuarios();
@@ -839,13 +1062,13 @@ const app = {
                         setTimeout(() => this.fillPerfilForm(prf), 100);
                     });
                 });
-                
+
                 document.querySelectorAll('.btn-del-prf').forEach(btn => {
                     btn.addEventListener('click', async (e) => {
-                        if(confirm('Deseja excluir este perfil?')) {
+                        if (confirm('Deseja excluir este perfil?')) {
                             const id = e.currentTarget.getAttribute('data-id');
                             const delRes = await app.authFetch(`${API_URL}/perfis/${id}`, { method: 'DELETE' });
-                            if(delRes.ok) {
+                            if (delRes.ok) {
                                 this.loadPerfis();
                                 this.showToast('Perfil excluído');
                             } else {
@@ -983,10 +1206,10 @@ const app = {
         document.getElementById('usr-login').value = '';
         document.getElementById('usr-senha').value = '';
         document.getElementById('usr-senha').required = true;
-        
+
         try {
             const res = await app.authFetch(`${API_URL}/perfis`);
-            if(res.ok) {
+            if (res.ok) {
                 const select = document.getElementById('usr-perfil');
                 select.innerHTML = '<option value="">Selecione...</option>';
                 const perfis = await res.json();
@@ -994,7 +1217,7 @@ const app = {
                     select.innerHTML += `<option value="${p.id_perfil}">${p.descricao}</option>`;
                 });
             }
-        } catch(e) {}
+        } catch (e) { }
 
         const form = document.getElementById('form-usuario');
         const newForm = form.cloneNode(true);
@@ -1017,10 +1240,10 @@ const app = {
             try {
                 const res = await app.authFetch(url, {
                     method: method,
-                    headers: {'Content-Type': 'application/json'},
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data)
                 });
-                if(res.ok) {
+                if (res.ok) {
                     this.showToast('Usuário salvo com sucesso!');
                     this.navTo('usuarios');
                 } else {
@@ -1038,18 +1261,18 @@ const app = {
         document.getElementById('usr-id').value = u.id_usuario;
         document.getElementById('usr-nome').value = u.nome;
         document.getElementById('usr-login').value = u.login;
-        
+
         // Verifica existencia do perfil ciclicamente (robusto contra lentidão da nuvem)
         const setProfile = () => {
             const select = document.getElementById('usr-perfil');
-            if(select && select.options.length > 1) {
+            if (select && select.options.length > 1) {
                 select.value = u.id_perfil;
             } else {
                 setTimeout(setProfile, 50);
             }
         };
         setProfile();
-        document.getElementById('usr-senha').required = false; 
+        document.getElementById('usr-senha').required = false;
     },
 
     async setupPerfilForm() {
@@ -1058,10 +1281,10 @@ const app = {
         document.getElementById('prf-descricao').value = '';
         const container = document.getElementById('permissions-container');
         container.innerHTML = '';
-        
+
         try {
             const res = await app.authFetch(`${API_URL}/permissoes`);
-            if(res.ok) {
+            if (res.ok) {
                 const permissoes = await res.json();
 
                 // Definição dos grupos de permissões
@@ -1131,7 +1354,7 @@ const app = {
                     `;
                 }
             }
-        } catch(e) {}
+        } catch (e) { }
 
         const form = document.getElementById('form-perfil');
         const newForm = form.cloneNode(true);
@@ -1141,26 +1364,26 @@ const app = {
             e.preventDefault();
             const id = document.getElementById('prf-id').value;
             const desc = document.getElementById('prf-descricao').value;
-            
+
             const method = id ? 'PUT' : 'POST';
             const url = id ? `${API_URL}/perfis/${id}` : `${API_URL}/perfis`;
 
             try {
                 const res = await app.authFetch(url, {
                     method: method,
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({descricao: desc})
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ descricao: desc })
                 });
-                
-                if(res.ok) {
+
+                if (res.ok) {
                     const savedPerfil = await res.json();
                     const targetId = id || savedPerfil.id;
-                    
+
                     const checkedPerms = Array.from(document.querySelectorAll('.permission-item input:checked')).map(cb => cb.value);
                     await app.authFetch(`${API_URL}/perfis/${targetId}/permissoes`, {
                         method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({permissoes: checkedPerms})
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ permissoes: checkedPerms })
                     });
 
                     this.showToast('Perfil salvo com sucesso!');
@@ -1178,17 +1401,17 @@ const app = {
         document.getElementById('title-perfil-form').textContent = 'Editar Perfil';
         document.getElementById('prf-id').value = p.id_perfil;
         document.getElementById('prf-descricao').value = p.descricao;
-        
+
         try {
             const res = await app.authFetch(`${API_URL}/perfis/${p.id_perfil}/permissoes`);
-            if(res.ok) {
+            if (res.ok) {
                 const checkedIds = await res.json();
                 const setPerms = () => {
                     const checkboxes = document.querySelectorAll('.permission-item input');
-                    if(checkboxes.length > 0) {
+                    if (checkboxes.length > 0) {
                         checkedIds.forEach(id => {
                             const cb = document.getElementById(`perm-${id}`);
-                            if(cb) cb.checked = true;
+                            if (cb) cb.checked = true;
                         });
                     } else {
                         setTimeout(setPerms, 50);
@@ -1196,11 +1419,11 @@ const app = {
                 };
                 setPerms();
             }
-        } catch(e) {}
+        } catch (e) { }
     },
 
     // UI Helpers
-    showToast(msg, type='success') {
+    showToast(msg, type = 'success') {
         const container = document.getElementById('toast-container');
         const t = document.createElement('div');
         t.className = `toast ${type}`;
@@ -1209,20 +1432,26 @@ const app = {
         setTimeout(() => t.remove(), 3000);
     },
 
-    async loadRecebimentosList(mes = '', ano = '', dizimista_id = '') {
+    async loadRecebimentosList(mes = '', ano = '', dizimista_id = '', page = 1, perPage = 10) {
         try {
-            let url = `${API_URL}/recebimentos`;
-            const params = [];
-            if (mes) params.push(`mes=${mes}`);
-            if (ano) params.push(`ano=${ano}`);
-            if (dizimista_id) params.push(`id_dizimista=${dizimista_id}`);
-            if (params.length) url += '?' + params.join('&');
+            let url = `${API_URL}/recebimentos?page=${page}&per_page=${perPage}`;
+            if (mes) url += `&mes=${mes}`;
+            if (ano) url += `&ano=${ano}`;
+            if (dizimista_id) url += `&id_dizimista=${dizimista_id}`;
+
+            // Pré-preencher os filtros visuais com os valores recebidos (apenas na carga inicial)
+            const filtroMes = document.getElementById('filtro-mes');
+            const filtroAno = document.getElementById('filtro-ano');
+            if (filtroMes && !filtroMes.value && mes) filtroMes.value = mes;
+            if (filtroAno && !filtroAno.value && ano) filtroAno.value = ano;
 
             const selectFiltroDiz = document.getElementById('filtro-dizimista');
             if (selectFiltroDiz && selectFiltroDiz.options.length <= 1) {
-                const dRes = await app.authFetch(`${API_URL}/dizimistas`);
-                if(dRes.ok) {
-                    const list = await dRes.json();
+                // Pedir 1000 para garantir que o filtro tenha bastantes opções (o ideal seria um autocomplete, mas mantendo a estrutura atual)
+                const dRes = await app.authFetch(`${API_URL}/dizimistas?per_page=1000`);
+                if (dRes.ok) {
+                    const response = await dRes.json();
+                    const list = response.data || [];
                     list.forEach(d => {
                         const opt = document.createElement('option');
                         opt.value = d.id_dizimista;
@@ -1234,17 +1463,30 @@ const app = {
 
             const res = await app.authFetch(url);
             if (!res.ok) return;
-            const recs = await res.json();
+            const response = await res.json();
+            const recs = response.data || [];
+            const totalCount = response.total || 0;
 
             const tbody = document.getElementById('tb-recebimentos');
             const totalBar = document.getElementById('rec-total-bar');
             if (!tbody) return;
 
             tbody.innerHTML = '';
-            const total = recs.reduce((sum, r) => sum + r.valor, 0);
-            totalBar.textContent = recs.length > 0
-                ? `Total filtrado: R$ ${total.toFixed(2).replace('.', ',')} — ${recs.length} registro(s)`
-                : '';
+
+            if (recs.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding: 2rem;">Nenhum lançamento encontrado</td></tr>';
+            }
+
+            // Calculando total apenas da página atual para exibição rápida ou total geral? 
+            // O usuário pediu "Total filtrado". Para o total geral filtrado precisaríamos que o backend calculasse a soma.
+            // Mas vamos manter a soma da página por enquanto ou remover se ficar confuso.
+            // Decisão: Manter a soma do que está na página e indicar que é da página.
+            const totalPagina = recs.reduce((sum, r) => sum + r.valor, 0);
+            if (totalBar) {
+                totalBar.innerHTML = totalCount > 0
+                    ? `Total na página: <strong>R$ ${totalPagina.toFixed(2).replace('.', ',')}</strong> — Total de registros: <strong>${totalCount}</strong>`
+                    : '';
+            }
 
             recs.forEach(r => {
                 const tr = document.createElement('tr');
@@ -1266,6 +1508,10 @@ const app = {
                 tbody.appendChild(tr);
             });
 
+            this.renderPagination('pagination-recebimentos', totalCount, page, perPage, (newPage, newPerPage) => {
+                this.loadRecebimentosList(mes, ano, dizimista_id, newPage, newPerPage);
+            });
+
             document.querySelectorAll('.btn-estornar').forEach(btn => {
                 btn.addEventListener('click', async (e) => {
                     if (confirm('Confirma o estorno deste lançamento?')) {
@@ -1276,7 +1522,9 @@ const app = {
                             this.loadRecebimentosList(
                                 document.getElementById('filtro-mes')?.value || '',
                                 document.getElementById('filtro-ano')?.value || '',
-                                document.getElementById('filtro-dizimista')?.value || ''
+                                document.getElementById('filtro-dizimista')?.value || '',
+                                page,
+                                perPage
                             );
                         } else {
                             this.showToast('Erro ao estornar', 'error');
@@ -1293,7 +1541,7 @@ const app = {
                     const m = document.getElementById('filtro-mes').value;
                     const a = document.getElementById('filtro-ano').value;
                     const d = document.getElementById('filtro-dizimista') ? document.getElementById('filtro-dizimista').value : '';
-                    this.loadRecebimentosList(m, a, d);
+                    this.loadRecebimentosList(m, a, d, 1, perPage);
                 });
                 btnFiltrar.dataset.bound = 'true';
             }
@@ -1304,12 +1552,13 @@ const app = {
                     if (document.getElementById('filtro-dizimista')) {
                         document.getElementById('filtro-dizimista').value = '';
                     }
-                    this.loadRecebimentosList();
+                    this.loadRecebimentosList('', '', '', 1, perPage);
                 });
                 btnLimpar.dataset.bound = 'true';
             }
 
         } catch (e) {
+            console.error(e);
             this.showToast('Erro ao carregar lançamentos', 'error');
         }
     },
