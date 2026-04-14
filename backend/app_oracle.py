@@ -623,8 +623,17 @@ def delete_missa(id):
     db.commit()
     return jsonify({'message': 'Missa excluída'})
 
+@app.route('/api/missas/hoje', methods=['GET'])
+def get_missas_hoje():
+    db = get_db()
+    data_str = request.args.get('data')
+    if not data_str:
+        data_str = datetime.now().strftime('%Y-%m-%d')
+    
+    print(f"[API] Buscando missas para data: {data_str}")
+    missas_rows = db.execute("SELECT id_missa, hora, comunidade, celebrante FROM missas WHERE data_missa = ? AND status = 1 ORDER BY hora", (data_str,)).fetchall()
+    return jsonify([dict(m) for m in missas_rows])
 
-# --- Usuários & Perfis (RF02, RF03) ---
 @app.route('/api/perfis', methods=['GET', 'POST'])
 def handle_perfis():
     db = get_db()
@@ -757,6 +766,12 @@ def manage_tipos(id):
         db.commit()
         return jsonify({'message': 'Atualizado'})
 
+@app.route('/api/tipos-lancamentos', methods=['GET'])
+def get_tipos_lancamentos():
+    db = get_db()
+    tipos = db.execute("SELECT * FROM tipos_lancamentos WHERE status = 1 ORDER BY descricao").fetchall()
+    return jsonify([dict(t) for t in tipos])
+
 # --- Pastorais ---
 @app.route('/api/pastorais', methods=['GET', 'POST'])
 def handle_pastorais():
@@ -879,10 +894,11 @@ def get_recebimentos():
 
     # Get paginated data
     query = f"""
-        SELECT r.*, d.nome as dizimista_nome, t.descricao as tipo_pagamento_nome
+        SELECT r.*, d.nome as dizimista_nome, t.descricao as tipo_pagamento_nome, tl.descricao as tipo_lancamento_nome
         FROM recebimentos r
         JOIN dizimistas d ON r.id_dizimista = d.id_dizimista
         JOIN tipos_pagamento t ON r.id_tipo_pagamento = t.id_tipo_pagamento
+        LEFT JOIN tipos_lancamentos tl ON r.id_tipo_lancamento = tl.id_tipo_lancamento
         WHERE {where_str}
         ORDER BY r.data_recebimento DESC
         OFFSET ? ROWS FETCH NEXT ? ROWS ONLY
@@ -902,21 +918,21 @@ def get_recebimentos():
 def create_recebimento():
     data = request.json
     db = get_db()
-    
     # Validations
     id_dizimista = data.get('id_dizimista')
     valor = data.get('valor')
     competencia = data.get('competencia') # MM/YYYY
     id_tipo_pagamento = data.get('id_tipo_pagamento')
+    id_tipo_lancamento = data.get('id_tipo_lancamento')
     id_usuario = data.get('id_usuario')
     
     if not all([id_dizimista, valor, competencia, id_tipo_pagamento, id_usuario]):
         return jsonify({'error': 'Dados incompletos.'}), 400
         
     cursor = db.execute("""
-        INSERT INTO recebimentos (id_dizimista, valor, competencia, id_tipo_pagamento, id_missa, id_usuario, observacao)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    """, (id_dizimista, valor, competencia, id_tipo_pagamento, data.get('id_missa'), id_usuario, data.get('observacao')))
+        INSERT INTO recebimentos (id_dizimista, valor, competencia, id_tipo_pagamento, id_tipo_lancamento, id_missa, id_usuario, observacao)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (id_dizimista, valor, competencia, id_tipo_pagamento, id_tipo_lancamento, data.get('id_missa'), id_usuario, data.get('observacao')))
     
     db.commit()
     return jsonify({'message': 'Atendimento registrado com sucesso', 'id': 0}), 201

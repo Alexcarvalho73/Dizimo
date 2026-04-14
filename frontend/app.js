@@ -3,11 +3,14 @@ const API_URL = (window.location.hostname === 'localhost' || window.location.hos
     ? 'http://localhost:5000/api'
     : '/api';
 
+const APP_VERSION = '2.01';
+
 const app = {
     state: {
         user: null,
         currentView: '',
-        token: null
+        token: null,
+        version: APP_VERSION
     },
 
     async authFetch(url, options = {}) {
@@ -84,6 +87,8 @@ const app = {
         this.container.appendChild(tpl);
 
         document.getElementById('header-user-name').textContent = this.state.user.nome;
+        const versionEl = document.getElementById('app-version');
+        if (versionEl) versionEl.textContent = this.state.version;
 
         // Mobile Sidebar Logic
         const layout = document.querySelector('.layout');
@@ -843,10 +848,14 @@ const app = {
 
         // Load Tipos
         try {
-            const tRes = await app.authFetch(`${API_URL}/tipos-pagamento`);
-            if (tRes.ok) {
+            const [pRes, lRes] = await Promise.all([
+                app.authFetch(`${API_URL}/tipos-pagamento`),
+                app.authFetch(`${API_URL}/tipos-lancamentos`)
+            ]);
+
+            if (pRes.ok) {
                 const tSelect = document.getElementById('rec-tipo');
-                const list = await tRes.json();
+                const list = await pRes.json();
                 tSelect.innerHTML = '<option value="">Selecione...</option>';
                 list.forEach(t => {
                     const opt = document.createElement('option');
@@ -855,7 +864,47 @@ const app = {
                     tSelect.appendChild(opt);
                 });
             }
+
+            if (lRes.ok) {
+                const lSelect = document.getElementById('rec-tipo-lancamento');
+                const list = await lRes.json();
+                lSelect.innerHTML = '<option value="">Selecione...</option>';
+                list.forEach(t => {
+                    const opt = document.createElement('option');
+                    opt.value = t.id_tipo_lancamento;
+                    opt.textContent = t.descricao;
+                    lSelect.appendChild(opt);
+                    // Pre-fill with "Dízimo" if coming from history
+                    if (this.state.prefillRecebimento && t.descricao.toLowerCase() === 'dízimo') {
+                        lSelect.value = t.id_tipo_lancamento;
+                    }
+                });
+            }
         } catch (e) { console.error("Error loading types", e); }
+
+        // Carregar Missas (data de hoje)
+        const localDate = new Date().toISOString().split('T')[0];
+        try {
+            const mRes = await app.authFetch(`${API_URL}/missas/hoje?data=${localDate}`);
+            if (mRes.ok) {
+                const mSelect = document.getElementById('rec-missa');
+                const list = await mRes.json();
+                if (mSelect) {
+                    mSelect.innerHTML = '<option value="">Selecione...</option>';
+                    list.forEach(m => {
+                        const opt = document.createElement('option');
+                        opt.value = m.id_missa;
+                        opt.textContent = `${m.hora} - ${m.comunidade || ''} (${m.celebrante || ''})`;
+                        mSelect.appendChild(opt);
+                    });
+                    if (list.length === 1) {
+                        mSelect.value = list[0].id_missa;
+                    }
+                }
+            }
+        } catch (e) {
+            console.error("Error loading today's masses", e);
+        }
 
         // Prefill logic (when coming from historico)
         if (this.state.prefillRecebimento) {
@@ -895,6 +944,9 @@ const app = {
             const valor = parseFloat(document.getElementById('rec-valor').value);
             const competencia = document.getElementById('rec-comp').value;
             const idTipo = document.getElementById('rec-tipo').value;
+            const idTipoLanc = document.getElementById('rec-tipo-lancamento').value;
+            const idMissa = document.getElementById('rec-missa').value;
+            const observacao = document.getElementById('rec-observacao').value;
             const isMult = document.getElementById('btn-parcela-multipla').classList.contains('active');
 
             // --- Validação de competência formato MM/AAAA ---
@@ -940,6 +992,9 @@ const app = {
                             valor: parcela.valor,
                             competencia: parcela.competencia,
                             id_tipo_pagamento: idTipo,
+                            id_tipo_lancamento: idTipoLanc,
+                            id_missa: idMissa || null,
+                            observacao: observacao,
                             id_usuario: this.state.user.id_usuario
                         })
                     });
@@ -1772,6 +1827,7 @@ const app = {
                     <td>${dataFmt}</td>
                     <td><strong>${r.dizimista_nome}</strong></td>
                     <td>${r.competencia}</td>
+                    <td>${r.tipo_lancamento_nome || '-'}</td>
                     <td>${r.tipo_pagamento_nome || '-'}</td>
                     <td style="color:var(--success-color);font-weight:bold;">R$ ${r.valor.toFixed(2).replace('.', ',')}</td>
                     <td>

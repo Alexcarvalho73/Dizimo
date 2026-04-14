@@ -89,6 +89,9 @@
                         <i class="ph ph-sign-out"></i> Sair
                     </button>
                 </nav>
+                <div class="sidebar-footer">
+                    Versão <span id="app-version">2.01</span>
+                </div>
             </aside>
             <main class="main-content">
                 <header class="topbar">
@@ -485,8 +488,10 @@
             </div>
             <div class="form-row">
                 <div class="input-group">
-                    <label>Competência (MM/AAAA)*</label>
-                    <input type="text" id="rec-comp" required placeholder="04/2026">
+                    <label>Tipo de Lançamento*</label>
+                    <select id="rec-tipo-lancamento" required>
+                        <!-- Loaded from API -->
+                    </select>
                 </div>
                 <div class="input-group">
                     <label>Tipo de Pagamento*</label>
@@ -494,6 +499,22 @@
                         <!-- Loaded from API -->
                     </select>
                 </div>
+            </div>
+            <div class="form-row">
+                <div class="input-group">
+                    <label>Missa</label>
+                    <select id="rec-missa">
+                        <option value="">Selecione...</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Competência (MM/AAAA)*</label>
+                    <input type="text" id="rec-comp" required placeholder="04/2026">
+                </div>
+            </div>
+            <div class="input-group">
+                <label>Observação</label>
+                <input type="text" id="rec-observacao" placeholder="Opcional">
             </div>
 
             <!-- Parcelamento -->
@@ -697,6 +718,7 @@
                         <th>Data</th>
                         <th>Dizimista</th>
                         <th>Competência</th>
+                        <th>Lançamento</th>
                         <th>Tipo</th>
                         <th>Valor</th>
                         <th>Ações</th>
