@@ -55,7 +55,12 @@ def requires_permission(permission_name):
             """, (user['id_perfil'], permission_name)).fetchone()
             
             if not has or has['total'] == 0:
-                return jsonify({'error': f'Sem permissão: {permission_name}'}), 403
+                print(f"[AUTH] Acesso negado: Usuario {user_id} tentou acessar '{permission_name}' sem permissao.")
+                return jsonify({
+                    'error': f'Acesso Negado: Você não tem a permissão "{permission_name}" necessária para realizar esta operação.',
+                    'code': 'PERMISSION_DENIED',
+                    'permission': permission_name
+                }), 403
             
             return f(*args, **kwargs)
         return decorated_function
@@ -115,6 +120,18 @@ def health():
         info['db_status'] = f'ERRO: {type(e).__name__}: {e}'
 
     return jsonify(info)
+
+@app.errorhandler(403)
+def forbidden(e):
+    return jsonify({'error': 'Acesso proibido ou permissão insuficiente.', 'code': 'FORBIDDEN'}), 403
+
+@app.errorhandler(404)
+def not_found(e):
+    return jsonify({'error': 'Recurso não encontrado.', 'code': 'NOT_FOUND'}), 404
+
+@app.errorhandler(500)
+def server_error(e):
+    return jsonify({'error': 'Erro interno do servidor. Verifique os logs.', 'code': 'INTERNAL_ERROR'}), 500
 
 # --- Configuração Oracle ---
 # Lê de variáveis de ambiente (Render/Cloud) ou usa valores locais como fallback
@@ -367,8 +384,8 @@ def create_dizimista():
     
     # Check CPF format and uniqueness
     cpf = data.get('cpf')
-    if not cpf:
-        return jsonify({'error': 'CPF é obrigatório.'}), 400
+#    if not cpf:
+#        return jsonify({'error': 'CPF é obrigatório.'}), 400
         
     exist = db.execute("SELECT id_dizimista FROM dizimistas WHERE cpf = ?", (cpf,)).fetchone()
     if exist:
@@ -452,30 +469,104 @@ def manage_dizimista(id):
 @app.route('/api/dizimistas/<int:id>/historico', methods=['GET'])
 def get_dizimista_historico(id):
     db = get_db()
-    historico = db.execute("SELECT * FROM auditoria WHERE nome_tabela = 'dizimistas' AND id_registro = ? ORDER BY data_hora DESC", (id,)).fetchall()
+    historico = db.execute("SELECT * FROM auditoria WHERE tabela = 'dizimistas' AND id_registro = ? ORDER BY data_hora DESC", (id,)).fetchall()
     return jsonify([dict(h) for h in historico])
 
+@app.route('/api/dizimistas/<int:id>/pastorais', methods=['GET', 'POST'])
+def handle_dizimista_pastorais(id):
+    db = get_db()
+    if request.method == 'GET':
+        rows = db.execute("SELECT id_pastoral FROM dizimista_pastoral WHERE id_dizimista = ?", (id,)).fetchall()
+        return jsonify([r['id_pastoral'] for r in rows])
+    if request.method == 'POST':
+        data = request.json # { pastorais: [id1, id2] }
+        pastorais = data.get('pastorais', [])
+        db.execute("DELETE FROM dizimista_pastoral WHERE id_dizimista = ?", (id,))
+        for pid in pastorais:
+            db.execute("INSERT INTO dizimista_pastoral (id_dizimista, id_pastoral) VALUES (?, ?)", (id, pid))
+        db.commit()
+        return jsonify({'message': 'Vínculo pastoral atualizado'})
 
-# --- Missas ---
+
 @app.route('/api/missas', methods=['GET'])
 @requires_permission('Visualizar Missas')
 def get_missas():
     db = get_db()
-    missas = db.execute("SELECT * FROM missas WHERE status = 1 ORDER BY data_missa DESC, hora").fetchall()
-    return jsonify([dict(m) for m in missas])
+    user_id = request.headers.get('X-User-Id')
+    user = db.execute("SELECT id_perfil, id_dizimista FROM usuarios WHERE id_usuario = ?", (user_id,)).fetchone()
+    
+    query = "SELECT * FROM missas WHERE status = 1"
+    params = []
+
+    # Filter logic: if linked to a dizimista, see only masses with relevant pastorals
+    if user and int(user['id_perfil']) != 1 and user['id_dizimista']:
+        query = """
+            SELECT DISTINCT m.* FROM missas m
+            JOIN missa_pastoral mp ON m.id_missa = mp.id_missa
+            JOIN dizimista_pastoral dp ON mp.id_pastoral = dp.id_pastoral
+            WHERE m.status = 1 AND dp.id_dizimista = ?
+        """
+        params = [user['id_dizimista']]
+
+    query += " ORDER BY data_missa DESC, hora"
+    missas_rows = db.execute(query, params).fetchall()
+    
+    missas = []
+    for m in missas_rows:
+        m_dict = dict(m)
+        id_m = m_dict['id_missa']
+
+        # Requisitos de pastorais
+        p_reqs = db.execute("""
+            SELECT mp.id_pastoral, mp.quantidade_servos as quantidade, p.nome as pastoral_nome
+            FROM missa_pastoral mp
+            JOIN pastorais p ON mp.id_pastoral = p.id_pastoral
+            WHERE mp.id_missa = ?
+        """, (id_m,)).fetchall()
+        m_dict['pastorais'] = [dict(p) for p in p_reqs]
+
+        # Calcular totais de vagas e preenchidas
+        vagas_data = db.execute("""
+            SELECT 
+                (SELECT SUM(quantidade_servos) FROM missa_pastoral WHERE id_missa = ?) as total,
+                (SELECT COUNT(*) FROM missa_servos WHERE id_missa = ? AND status = 1) as preenchidas
+            FROM dual
+        """, (id_m, id_m)).fetchone()
+        
+        m_dict['total_vagas'] = int(vagas_data['total'] or 0)
+        m_dict['preenchidas'] = int(vagas_data['preenchidas'] or 0)
+        
+        missas.append(m_dict)
+
+    return jsonify(missas)
 
 @app.route('/api/missas', methods=['POST'])
 @requires_permission('Criar Missas')
 def create_missa():
-    data = request.json
-    db = get_db()
-    db.execute("""
-        INSERT INTO missas (data_missa, hora, comunidade, celebrante, tipo)
-        VALUES (?, ?, ?, ?, ?)
-    """, (data.get('data_missa'), data.get('hora'), data.get('comunidade'),
-          data.get('celebrante'), data.get('tipo')))
-    db.commit()
-    return jsonify({'message': 'Missa criada com sucesso'}), 201
+    try:
+        data = request.json
+        db = get_db()
+        db.execute("""
+            INSERT INTO missas (data_missa, hora, comunidade, celebrante, tipo)
+            VALUES (?, ?, ?, ?, ?)
+        """, (data.get('data_missa'), data.get('hora'), data.get('comunidade'),
+              data.get('celebrante'), data.get('tipo')))
+        
+        new_id = fetch_scalar(db.execute("SELECT MAX(id_missa) FROM missas"))
+
+        # Save Pastorals requirements
+        pastorais_req = data.get('pastorais', [])
+        for p in pastorais_req:
+            db.execute("""
+                INSERT INTO missa_pastoral (id_missa, id_pastoral, quantidade_servos)
+                VALUES (?, ?, ?)
+            """, (new_id, int(p['id_pastoral']), int(p['quantidade'])))
+
+        db.commit()
+        return jsonify({'message': 'Missa criada com sucesso', 'id': new_id}), 201
+    except Exception as e:
+        print(f"ERRO SQL (create_missa): {e}")
+        return jsonify({'error': f'Erro ao criar missa: {str(e)}'}), 500
 
 @app.route('/api/missas/<int:id>', methods=['GET'])
 @requires_permission('Visualizar Missas')
@@ -484,20 +575,45 @@ def get_missa(id):
     m = db.execute("SELECT * FROM missas WHERE id_missa = ?", (id,)).fetchone()
     if not m:
         return jsonify({'error': 'Não encontrado'}), 404
-    return jsonify(dict(m))
+    
+    missa_dict = dict(m)
+    # Buscar requisitos de pastorais
+    pastorais = db.execute("""
+        SELECT mp.id_pastoral, mp.quantidade_servos as quantidade, p.nome as pastoral_nome
+        FROM missa_pastoral mp
+        JOIN pastorais p ON mp.id_pastoral = p.id_pastoral
+        WHERE mp.id_missa = ?
+    """, (id,)).fetchall()
+    missa_dict['pastorais'] = [dict(p) for p in pastorais]
+    
+    return jsonify(missa_dict)
 
 @app.route('/api/missas/<int:id>', methods=['PUT'])
 @requires_permission('Editar Missas')
 def update_missa(id):
-    data = request.json
-    db = get_db()
-    db.execute("""
-        UPDATE missas SET data_missa=?, hora=?, comunidade=?, celebrante=?, tipo=?
-        WHERE id_missa=?
-    """, (data.get('data_missa'), data.get('hora'), data.get('comunidade'),
-          data.get('celebrante'), data.get('tipo'), id))
-    db.commit()
-    return jsonify({'message': 'Missa atualizada com sucesso'})
+    try:
+        data = request.json
+        db = get_db()
+        db.execute("""
+            UPDATE missas SET data_missa=?, hora=?, comunidade=?, celebrante=?, tipo=?
+            WHERE id_missa=?
+        """, (data.get('data_missa'), data.get('hora'), data.get('comunidade'),
+              data.get('celebrante'), data.get('tipo'), id))
+
+        # Update Pastorals requirements
+        db.execute("DELETE FROM missa_pastoral WHERE id_missa = ?", (id,))
+        pastorais_req = data.get('pastorais', [])
+        for p in pastorais_req:
+            db.execute("""
+                INSERT INTO missa_pastoral (id_missa, id_pastoral, quantidade_servos)
+                VALUES (?, ?, ?)
+            """, (id, int(p['id_pastoral']), int(p['quantidade'])))
+
+        db.commit()
+        return jsonify({'message': 'Missa atualizada com sucesso'})
+    except Exception as e:
+        print(f"ERRO SQL (update_missa): {e}")
+        return jsonify({'error': f'Erro ao atualizar missa: {str(e)}'}), 500
 
 @app.route('/api/missas/<int:id>', methods=['DELETE'])
 @requires_permission('Excluir Missas')
@@ -641,33 +757,89 @@ def manage_tipos(id):
         db.commit()
         return jsonify({'message': 'Atualizado'})
 
-# --- Missas (RF05) ---
-@app.route('/api/missas', methods=['GET', 'POST'])
-def handle_missas():
+# --- Pastorais ---
+@app.route('/api/pastorais', methods=['GET', 'POST'])
+def handle_pastorais():
     db = get_db()
     if request.method == 'GET':
-        missas = db.execute("SELECT * FROM missas WHERE status = 1 ORDER BY data DESC").fetchall()
-        return jsonify([dict(t) for t in missas])
+        pastorais = db.execute("SELECT * FROM pastorais WHERE status = 1 ORDER BY nome").fetchall()
+        return jsonify([dict(p) for p in pastorais])
     if request.method == 'POST':
         data = request.json
-        cursor = db.execute("INSERT INTO missas (data, hora, comunidade, celebrante, tipo) VALUES (?, ?, ?, ?, ?)",
-                            (data['data'], data['hora'], data.get('comunidade'), data.get('celebrante'), data.get('tipo')))
+        db.execute("INSERT INTO pastorais (nome) VALUES (?)", (data['nome'],))
+        new_id = fetch_scalar(db.execute("SELECT MAX(id_pastoral) FROM pastorais"))
         db.commit()
-        return jsonify({'message': 'Missa criada', 'id': 0}), 201
+        return jsonify({'message': 'Pastoral criada com sucesso', 'id': new_id}), 201
 
-@app.route('/api/missas/<int:id>', methods=['PUT', 'DELETE'])
-def manage_missas(id):
+@app.route('/api/pastorais/<int:id>', methods=['PUT', 'DELETE'])
+def manage_pastorais(id):
     db = get_db()
     if request.method == 'DELETE':
-        db.execute("UPDATE missas SET status = 0 WHERE id_missa = ?", (id,))
+        db.execute("UPDATE pastorais SET status = 0 WHERE id_pastoral = ?", (id,))
         db.commit()
-        return jsonify({'message': 'Removida'})
+        return jsonify({'message': 'Pastoral removida'})
     if request.method == 'PUT':
         data = request.json
-        db.execute("UPDATE missas SET data=?, hora=?, comunidade=?, celebrante=?, tipo=? WHERE id_missa=?",
-                   (data['data'], data['hora'], data.get('comunidade'), data.get('celebrante'), data.get('tipo'), id))
+        db.execute("UPDATE pastorais SET nome = ? WHERE id_pastoral = ?", (data['nome'], id))
         db.commit()
-        return jsonify({'message': 'Atualizada'})
+        return jsonify({'message': 'Pastoral atualizada'})
+
+@app.route('/api/pastorais/<int:id>/membros', methods=['GET'])
+def get_pastoral_membros(id):
+    db = get_db()
+    membros = db.execute("""
+        SELECT d.id_dizimista, d.nome 
+        FROM dizimistas d
+        JOIN dizimista_pastoral dp ON d.id_dizimista = dp.id_dizimista
+        WHERE dp.id_pastoral = ? AND d.status = 1
+        ORDER BY d.nome
+    """, (id,)).fetchall()
+    return jsonify([dict(m) for m in membros])
+
+@app.route('/api/missas/<int:id_missa>/servos', methods=['GET', 'POST'])
+def handle_missa_servos(id_missa):
+    db = get_db()
+    if request.method == 'GET':
+        servos = db.execute("""
+            SELECT ms.*, d.nome as dizimista_nome, p.nome as pastoral_nome
+            FROM missa_servos ms
+            JOIN dizimistas d ON ms.id_dizimista = d.id_dizimista
+            JOIN pastorais p ON ms.id_pastoral = p.id_pastoral
+            WHERE ms.id_missa = ? AND ms.status = 1
+        """, (id_missa,)).fetchall()
+        return jsonify([dict(s) for s in servos])
+    
+    if request.method == 'POST':
+        data = request.json # { id_pastoral, id_dizimista }
+        # Validar se o dizimista pertence à pastoral
+        vinculo = db.execute("SELECT 1 FROM dizimista_pastoral WHERE id_dizimista = ? AND id_pastoral = ?", 
+                             (data['id_dizimista'], data['id_pastoral'])).fetchone()
+        if not vinculo:
+            return jsonify({'error': 'Este dizimista não pertence a esta pastoral'}), 400
+        
+        db.execute("""
+            INSERT INTO missa_servos (id_missa, id_pastoral, id_dizimista)
+            VALUES (?, ?, ?)
+        """, (id_missa, data['id_pastoral'], data['id_dizimista']))
+        db.commit()
+        return jsonify({'message': 'Servo escalado com sucesso'}), 201
+
+@app.route('/api/missas/servos/<int:id_vinculo>', methods=['DELETE'])
+def remove_missa_servo(id_vinculo):
+    db = get_db()
+    db.execute("DELETE FROM missa_servos WHERE id_missa_servo = ?", (id_vinculo,))
+    db.commit()
+    return jsonify({'message': 'Servo removido da escala'})
+def get_missa_pastorais(id_missa):
+    db = get_db()
+    rows = db.execute("""
+        SELECT mp.*, p.nome as pastoral_nome
+        FROM missa_pastoral mp
+        JOIN pastorais p ON mp.id_pastoral = p.id_pastoral
+        WHERE mp.id_missa = ?
+    """, (id_missa,)).fetchall()
+    return jsonify([dict(r) for r in rows])
+
 
 # --- Recebimentos Routes ---
 @app.route('/api/recebimentos', methods=['GET'])
@@ -780,7 +952,83 @@ def get_dashboard_info():
         'dizimistas_ativos': dizimistas_ativos
     })
 
+# --- Relatórios ---
+
+@app.route('/api/relatorios/servos-missa', methods=['GET'])
+@requires_permission('Visualizar Missas')
+def relatorio_servos_missa():
+    db = get_db()
+    data_inicio = request.args.get('data_inicio')
+    data_fim = request.args.get('data_fim')
+    pastorais_filtro = request.args.get('pastorais') # Ex: "1,2,3"
+    
+    if not data_inicio or not data_fim:
+        return jsonify({'error': 'Datas de início e fim são obrigatórias.'}), 400
+
+    # 1. Buscar missas no período (usando comparação de string pois data_missa é VARCHAR2 em YYYY-MM-DD)
+    query_missas = """
+        SELECT * FROM missas 
+        WHERE data_missa >= ? AND data_missa <= ?
+        ORDER BY data_missa ASC, hora ASC
+    """
+    missas = db.execute(query_missas, (data_inicio, data_fim)).fetchall()
+    
+    report_data = []
+
+    for m in missas:
+        m_dict = dict(m)
+        id_missa = m_dict['id_missa']
+        
+        # 2. Buscar requisitos de pastorais (filtrando se necessário)
+        where_p = "WHERE mp.id_missa = ?"
+        params_p = [id_missa]
+        if pastorais_filtro:
+            p_ids = [int(x) for x in pastorais_filtro.split(',')]
+            placeholders = ','.join(['?'] * len(p_ids))
+            where_p += f" AND mp.id_pastoral IN ({placeholders})"
+            params_p.extend(p_ids)
+
+        query_pastorais = f"""
+            SELECT mp.id_pastoral, mp.quantidade_servos as quantidade, p.nome as pastoral_nome
+            FROM missa_pastoral mp
+            JOIN pastorais p ON mp.id_pastoral = p.id_pastoral
+            {where_p}
+            ORDER BY p.nome
+        """
+        reqs = db.execute(query_pastorais, tuple(params_p)).fetchall()
+        
+        pastorais_list = []
+        for r in reqs:
+            r_dict = dict(r)
+            id_p = r_dict['id_pastoral']
+            vagas = r_dict['quantidade']
+            
+            # 3. Buscar servos escalados
+            query_servos = """
+                SELECT ms.id_missa_servo, d.nome as dizimista_nome
+                FROM missa_servos ms
+                JOIN dizimistas d ON ms.id_dizimista = d.id_dizimista
+                WHERE ms.id_missa = ? AND ms.id_pastoral = ? AND ms.status = 1
+            """
+            servos = db.execute(query_servos, (id_missa, id_p)).fetchall()
+            servos_names = [s['dizimista_nome'] for s in servos]
+            
+            # Preencher com "(vago)" se necessário
+            final_servos = servos_names[:]
+            while len(final_servos) < vagas:
+                final_servos.append("(vago)")
+                
+            r_dict['servos'] = final_servos
+            pastorais_list.append(r_dict)
+            
+        m_dict['pastorais'] = pastorais_list
+        # Só adiciona no relatório se houver pastorais para mostrar nessa missa (após filtro)
+        if pastorais_list:
+            report_data.append(m_dict)
+
+    return jsonify(report_data)
+
 if __name__ == '__main__':
     with app.app_context():
         init_db()
-    app.run(debug=True, port=5000)
+    app.run(debug=True, host='0.0.0.0', port=5000)

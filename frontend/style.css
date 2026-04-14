@@ -517,7 +517,7 @@ input:focus, select:focus {
     top: 0; left: 0; width: 100%; height: 100%;
     background: rgba(15, 23, 42, 0.6);
     backdrop-filter: blur(4px);
-    display: flex;
+    display: none;
     align-items: center;
     justify-content: center;
     z-index: 2000;
@@ -989,4 +989,257 @@ input:focus, select:focus {
     content: " (ajuste)";
     font-size: 0.7rem;
     color: var(--warning-color, #f59e0b);
+}
+
+/* --- Pastoral Expansion Styles --- */
+.pastoral-row {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-end;
+    padding-bottom: 1rem;
+    border-bottom: 1px dashed var(--border-color);
+}
+.pastoral-row:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+.pastoral-row .input-group {
+    flex: 1;
+}
+.pastorais-checkbox-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+    padding: 1rem;
+    background: rgba(2, 132, 199, 0.03);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+}
+.pastoral-checkbox-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+}
+.pastoral-checkbox-item input {
+    width: auto;
+    cursor: pointer;
+}
+.pastoral-checkbox-item label {
+    margin-bottom: 0;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+.btn-sm {
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+}
+
+/* Missa Servos Escalados */
+.servos-details-container {
+    padding: 1.5rem;
+    background: #f8fafc;
+    border-radius: 0 0 var(--radius-md) var(--radius-md);
+    border: 1px solid var(--border-color);
+    border-top: none;
+    margin-top: -1px;
+    animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.pastoral-servos-group {
+    margin-bottom: 2rem;
+}
+
+.pastoral-servos-group h4 {
+    color: var(--primary-dark);
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-bottom: 2px solid var(--primary-light);
+    padding-bottom: 0.5rem;
+}
+
+.servos-slots-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 1rem;
+}
+
+.servo-slot {
+    background: white;
+    padding: 1rem;
+    border-radius: var(--radius-md);
+    border: 1px dashed var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: all 0.2s;
+}
+
+.servo-slot.assigned {
+    border-style: solid;
+    border-color: var(--primary-light);
+    background: rgba(56, 189, 248, 0.05);
+}
+
+.servo-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.servo-info i {
+    font-size: 1.25rem;
+    color: var(--text-muted);
+}
+
+.assigned .servo-info i {
+    color: var(--primary-color);
+}
+
+.servo-slot .btn-assign {
+    color: var(--primary-color);
+    background: transparent;
+    border: 1px solid var(--primary-color);
+    padding: 0.25rem 0.75rem;
+    border-radius: var(--radius-full);
+    font-size: 0.85rem;
+}
+
+.servo-slot .btn-assign:hover {
+    background: var(--primary-color);
+    color: white;
+}
+
+.servo-slot .btn-remove-servo {
+    color: var(--error-color);
+    font-size: 1.15rem;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+}
+
+/* Central de Relatórios */
+.reports-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1.5rem;
+}
+
+.report-card {
+    display: flex;
+    align-items: center;
+    padding: 1.5rem;
+    gap: 1.25rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1px solid var(--border-color);
+}
+
+.report-card:hover {
+    border-color: var(--primary-color);
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-md);
+}
+
+.report-icon {
+    width: 50px;
+    height: 50px;
+    background: rgba(2, 132, 199, 0.1);
+    color: var(--primary-color);
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+}
+
+.report-info { flex: 1; }
+.report-info h3 { font-size: 1.1rem; margin-bottom: 0.25rem; color: var(--text-main); }
+.report-info p { font-size: 0.85rem; color: var(--text-muted); line-height: 1.4; }
+
+/* Report Print Container */
+.report-print-container {
+    background: white;
+    padding: 2cm;
+    min-height: 29.7cm; /* A4 height */
+    color: #1e293b;
+    font-family: 'Inter', sans-serif;
+}
+
+.report-header {
+    text-align: center;
+    margin-bottom: 2rem;
+    border-bottom: 2px solid #e2e8f0;
+    padding-bottom: 1.5rem;
+}
+
+.report-header h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+.report-header p { color: #64748b; font-size: 0.9rem; }
+
+.report-section {
+    margin-bottom: 1.5rem;
+    break-inside: avoid;
+}
+
+.report-mass-header {
+    background: #f1f5f9;
+    padding: 0.75rem 1rem;
+    display: flex;
+    justify-content: space-between;
+    font-weight: 600;
+    border: 1px solid #cbd5e1;
+    font-size: 1rem;
+}
+
+.report-pastoral-group {
+    border: 1px solid #e2e8f0;
+    border-top: none;
+    padding: 1rem;
+}
+
+.report-pastoral-title {
+    font-weight: 700;
+    color: #475569;
+    margin-bottom: 0.5rem;
+    border-bottom: 1px dashed #cbd5e1;
+    padding-bottom: 0.25rem;
+}
+
+.report-servos-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+}
+
+.report-servo-item {
+    font-size: 0.95rem;
+    padding: 0.25rem 0.5rem;
+}
+
+.report-servo-item.vago {
+    color: #94a3b8;
+    font-style: italic;
+}
+
+/* Print Rules */
+@media print {
+    body { background: white !important; }
+    .sidebar, .topbar, .no-print, .btn, .view-header { display: none !important; }
+    .main-content { padding: 0 !important; margin: 0 !important; }
+    .content-area { padding: 0 !important; margin: 0 !important; }
+    .layout { display: block !important; }
+    .report-print-container {
+        padding: 0 !important;
+        margin: 0 !important;
+        box-shadow: none !important;
+        border: none !important;
+    }
+    .glass-panel { background: white !important; border: none !important; box-shadow: none !important; }
 }

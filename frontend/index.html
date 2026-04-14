@@ -73,11 +73,17 @@
                     <button class="nav-item" data-target="missas" id="nav-missas">
                         <i class="ph ph-church"></i> Missas
                     </button>
+                    <button class="nav-item" data-target="pastorais" id="nav-pastorais">
+                        <i class="ph ph-users-three"></i> Pastorais
+                    </button>
                     <button class="nav-item" data-target="usuarios" id="nav-usuarios" style="display: none;">
                         <i class="ph ph-users-four"></i> Usuários
                     </button>
                     <button class="nav-item" data-target="perfis" id="nav-perfis" style="display: none;">
                         <i class="ph ph-shield-check"></i> Perfis & Permissões
+                    </button>
+                    <button class="nav-item" data-target="relatorios" id="nav-relatorios">
+                        <i class="ph ph-file-text"></i> Relatórios
                     </button>
                     <button class="nav-item" data-target="logout">
                         <i class="ph ph-sign-out"></i> Sair
@@ -221,8 +227,10 @@
                     <input type="text" id="diz-nome" required>
                 </div>
                 <div class="input-group">
-                    <label>CPF*</label>
-                    <input type="text" id="diz-cpf" required placeholder="000.000.000-00">
+                    <!--                    <label>CPF*</label>
+                        <input type="text" id="diz-cpf" required placeholder="000.000.000-00"> -->
+                    <label>CPF</label>
+                    <input type="text" id="diz-cpf" placeholder="000.000.000-00">
                 </div>
             </div>
             <div class="form-row">
@@ -241,32 +249,47 @@
             </div>
             <div class="form-row">
                 <div class="input-group">
-                    <label>Endereço</label>
-                    <input type="text" id="diz-endereco">
-                </div>
-                <div class="input-group">
-                    <label>Bairro</label>
-                    <input type="text" id="diz-bairro">
-                </div>
-            </div>
-            <div class="form-row">
-                <div class="input-group">
-                    <label>Cidade</label>
-                    <input type="text" id="diz-cidade">
-                </div>
-                <div class="input-group">
                     <label>CEP</label>
                     <input type="text" id="diz-cep" placeholder="00000-000">
                 </div>
                 <div class="input-group">
-                    <label>Dízimo Ofertado (R$)</label>
-                    <input type="number" id="diz-valor" step="0.01" placeholder="0,00">
+                    <label>Endereço</label>
+                    <input type="text" id="diz-endereco">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="input-group">
+                    <label>Bairro</label>
+                    <input type="text" id="diz-bairro">
+                </div>
+                <div class="input-group">
+                    <label>Cidade</label>
+                    <input type="text" id="diz-cidade">
                 </div>
             </div>
             <div class="input-group" style="margin-bottom: 1.5rem;">
+                <div class="input-group">
+                    <label>Dízimo Ofertado (R$)</label>
+                    <input type="number" id="diz-valor" step="0.01" placeholder="0,00">
+                </div>
                 <label>Observações</label>
                 <textarea id="diz-observacoes" rows="3"
                     style="width: 100%; padding: 0.75rem 1rem; border: 1px solid var(--border-color); border-radius: var(--radius-md); outline: none; font-size: 0.95rem; background-color: #f8fafc; resize: vertical; font-family: inherit;"></textarea>
+            </div>
+
+            <!-- Vínculo com Pastorais (Novo) -->
+            <div class="glass-panel mt-4">
+                <label class="section-title"
+                    style="display: flex; align-items: center; gap: 0.5rem; font-weight: 600; margin-bottom: 1rem;">
+                    <i class="ph ph-users-three" style="color: var(--primary-color);"></i> Participação em Pastorais
+                </label>
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">Selecione as pastorais das
+                    quais este contato participa.</p>
+                <div id="diz-pastorais-list" class="pastorais-checkbox-grid"
+                    style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem;">
+                    <!-- Checkboxes serão gerados via JS -->
+                    <span style="color: var(--text-muted); font-style: italic;">Carregando pastorais...</span>
+                </div>
             </div>
             <div class="form-actions mt-4">
                 <button type="button" class="btn btn-secondary" onclick="app.navTo('dizimistas')">Cancelar</button>
@@ -291,6 +314,7 @@
                         <th>Comunidade</th>
                         <th>Celebrante</th>
                         <th>Tipo</th>
+                        <th>Vagas (P/N)</th>
                         <th>Ações</th>
                     </tr>
                 </thead>
@@ -339,9 +363,95 @@
                     <input type="text" id="missa-celebrante" placeholder="Nome do padre celebrante">
                 </div>
             </div>
+
+            <!-- Recorrência (RF: Missa Recorrente) -->
+            <div class="recurrence-section glass-panel mt-4" id="section-recorrencia">
+                <label class="section-title"
+                    style="display: flex; align-items: center; gap: 0.5rem; font-weight: 600; margin-bottom: 1rem; color: var(--primary-color);">
+                    <i class="ph ph-calendar-plus" style="font-size: 1.2rem;"></i> Opções de Recorrência
+                </label>
+                <div class="input-group" style="flex-direction: row; align-items: center; gap: 0.5rem;">
+                    <input type="checkbox" id="missa-recorrente" style="width: auto;">
+                    <label for="missa-recorrente" style="margin-bottom: 0; cursor: pointer;">Cadastrar como missa
+                        recorrente?</label>
+                </div>
+
+                <div id="missa-recorrente-options"
+                    style="display:none; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px dashed var(--border-color);">
+                    <div class="form-row">
+                        <div class="input-group">
+                            <label>Até a data (Fim)*</label>
+                            <input type="date" id="missa-data-fim">
+                        </div>
+                        <div class="input-group">
+                            <label>Periodicidade*</label>
+                            <select id="missa-frequencia">
+                                <option value="diaria">Diária</option>
+                                <option value="semanal" selected>Semanal</option>
+                                <option value="mensal">Mensal</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Requisitos de Servos por Pastoral (Novo) -->
+            <div class="glass-panel mt-4">
+                <label class="section-title"
+                    style="display: flex; align-items: center; gap: 0.5rem; font-weight: 600; margin-bottom: 1rem;">
+                    <i class="ph ph-users-three" style="color: var(--primary-color);"></i> Requisitos de Pastorais
+                </label>
+                <div id="missa-pastorais-container" style="display: flex; flex-direction: column; gap: 1rem;">
+                    <!-- Linhas dinâmicas entrarão aqui -->
+                </div>
+                <button type="button" class="btn btn-secondary btn-sm mt-3" id="btn-add-pastoral-missa">
+                    <i class="ph ph-plus"></i> Adicionar Pastoral
+                </button>
+            </div>
+
             <div class="form-actions mt-4">
                 <button type="button" class="btn btn-secondary" onclick="app.navTo('missas')">Cancelar</button>
                 <button type="submit" class="btn btn-primary">Salvar Missa</button>
+            </div>
+        </form>
+    </template>
+
+    <!-- View: Pastorais (Gestão) -->
+    <template id="view-pastorais">
+        <div class="view-header">
+            <h2><i class="ph ph-users-three"></i> Gestão de Pastorais</h2>
+            <button class="btn btn-primary" onclick="app.navTo('pastoral-form')"><i class="ph ph-plus"></i> Nova
+                Pastoral</button>
+        </div>
+        <div class="table-responsive mt-4 glass-panel">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Nome da Pastoral</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="tb-pastorais"></tbody>
+            </table>
+        </div>
+    </template>
+
+    <!-- View: Formulário de Pastoral -->
+    <template id="view-pastoral-form">
+        <div class="view-header">
+            <h2><button class="btn-icon" onclick="app.navTo('pastorais')"><i class="ph ph-arrow-left"></i></button>
+                <span id="title-pastoral-form">Nova Pastoral</span>
+            </h2>
+        </div>
+        <form id="form-pastoral" class="form-layout glass-panel mt-4">
+            <input type="hidden" id="pastoral-id">
+            <div class="input-group">
+                <label>Nome da Pastoral*</label>
+                <input type="text" id="pastoral-nome" required placeholder="Ex: Pastoral da Música">
+            </div>
+            <div class="form-actions mt-4">
+                <button type="button" class="btn btn-secondary" onclick="app.navTo('pastorais')">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Salvar Pastoral</button>
             </div>
         </form>
     </template>
@@ -472,6 +582,18 @@
                     </select>
                 </div>
             </div>
+            <div class="input-group mt-2">
+                <label>Vincular a Dizimista (Opcional - p/ restrição pastoral)</label>
+                <div class="search-bar" style="display: flex; gap: 5px; margin-top: 0;">
+                    <div class="input-wrapper" style="flex: 1;">
+                        <i class="ph ph-user"></i>
+                        <input type="text" id="usr-dizimista-search" placeholder="Busque dizimista por nome ou CPF..."
+                            autocomplete="off">
+                        <input type="hidden" id="usr-dizimista-id">
+                    </div>
+                </div>
+                <div id="usr-dizimista-results" class="autocomplete-results" style="display: none;"></div>
+            </div>
             <div class="form-actions mt-4">
                 <button type="button" class="btn btn-secondary" onclick="app.navTo('usuarios')">Cancelar</button>
                 <button type="submit" class="btn btn-primary">Salvar Usuário</button>
@@ -586,74 +708,6 @@
         <div id="pagination-recebimentos" class="pagination-footer mt-4"></div>
     </template>
 
-    <!-- View: Missas -->
-    <template id="view-missas">
-        <div class="view-header">
-            <h2>Gestão de Missas</h2>
-            <button class="btn btn-primary" onclick="app.navTo('missa-form')"><i class="ph ph-plus"></i> Nova
-                Missa</button>
-        </div>
-        <div class="table-responsive mt-4 glass-panel">
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>Data</th>
-                        <th>Hora</th>
-                        <th>Tipo</th>
-                        <th>Celebrante</th>
-                        <th>Comunidade</th>
-                        <th>Ações</th>
-                    </tr>
-                </thead>
-                <tbody id="tb-missas"></tbody>
-            </table>
-        </div>
-    </template>
-
-    <!-- View: Formulário de Missa -->
-    <template id="view-missa-form">
-        <div class="view-header">
-            <h2><button class="btn-icon" onclick="app.navTo('missas')"><i class="ph ph-arrow-left"></i></button> <span
-                    id="title-missa-form">Nova Missa</span></h2>
-        </div>
-        <form id="form-missa" class="form-layout glass-panel mt-4">
-            <input type="hidden" id="miss-id">
-            <div class="form-row">
-                <div class="input-group">
-                    <label>Data*</label>
-                    <input type="date" id="miss-data" required>
-                </div>
-                <div class="input-group">
-                    <label>Hora*</label>
-                    <input type="time" id="miss-hora" required>
-                </div>
-            </div>
-            <div class="form-row">
-                <div class="input-group">
-                    <label>Tipo de Missa</label>
-                    <select id="miss-tipo">
-                        <option value="">Selecione...</option>
-                        <option value="Dominical">Dominical</option>
-                        <option value="Feriale">Feriale</option>
-                        <option value="Especial">Especial</option>
-                        <option value="Novena">Novena</option>
-                    </select>
-                </div>
-                <div class="input-group">
-                    <label>Celebrante</label>
-                    <input type="text" id="miss-celebrante" placeholder="Nome do padre">
-                </div>
-            </div>
-            <div class="input-group">
-                <label>Comunidade</label>
-                <input type="text" id="miss-comunidade" placeholder="Ex: Comunidade Matriz">
-            </div>
-            <div class="form-actions mt-4">
-                <button type="button" class="btn btn-secondary" onclick="app.navTo('missas')">Cancelar</button>
-                <button type="submit" class="btn btn-primary">Salvar Missa</button>
-            </div>
-        </form>
-    </template>
 
     <!-- History Modal -->
     <div id="modal-historico" class="modal" style="display: none;">
@@ -715,6 +769,94 @@
             </div>
         </div>
     </div>
+
+    <div id="modal-select-servo" class="modal">
+        <div class="modal-content glass-panel" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3>Selecionar Servo</h3>
+                <button class="btn-icon" onclick="document.getElementById('modal-select-servo').style.display='none'"><i
+                        class="ph ph-x"></i></button>
+            </div>
+            <div class="modal-body mt-4">
+                <p id="servo-pastoral-label" style="font-weight: 500; color: var(--primary-dark); margin-bottom: 1rem;">
+                </p>
+                <div class="input-group">
+                    <label>Escolha o Dizimista</label>
+                    <select id="select-servo-dizimista" class="input-field">
+                        <option value="">Carregando membros...</option>
+                    </select>
+                </div>
+                <div class="actions-flex mt-6">
+                    <button class="btn btn-secondary"
+                        onclick="document.getElementById('modal-select-servo').style.display='none'">Cancelar</button>
+                    <button id="btn-confirm-assign" class="btn btn-primary">Confirmar Escala</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <template id="view-relatorios">
+        <div class="view-header">
+            <h2><i class="ph ph-file-text"></i> Central de Relatórios</h2>
+        </div>
+        <div class="reports-grid mt-6">
+            <div class="report-card glass-panel" onclick="app.navTo('relatorio-servos-filtro')">
+                <div class="report-icon"><i class="ph ph-users-three"></i></div>
+                <div class="report-info">
+                    <h3>Escala de Servos por Missa</h3>
+                    <p>Relação detalhada de servos e vagas por pastoral em cada missa do período.</p>
+                </div>
+                <i class="ph ph-caret-right"></i>
+            </div>
+            <!-- Outros relatórios podem ser adicionados aqui -->
+        </div>
+    </template>
+
+    <template id="view-relatorio-servos-filtro">
+        <div class="view-header">
+            <h2><button class="btn-icon" onclick="app.navTo('relatorios')"><i class="ph ph-arrow-left"></i></button>
+                Filtros do Relatório</h2>
+        </div>
+        <form id="form-relatorio-servos" class="form-layout glass-panel mt-4">
+            <div class="form-row">
+                <div class="input-group">
+                    <label>Data Início*</label>
+                    <input type="date" id="rel-servos-inicio" required>
+                </div>
+                <div class="input-group">
+                    <label>Data Fim*</label>
+                    <input type="date" id="rel-servos-fim" required>
+                </div>
+            </div>
+
+            <div class="mt-4">
+                <label class="section-title">Filtrar Pastorais (Opcional)</label>
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">Se não marcar nada, todas
+                    serão listadas.</p>
+                <div id="rel-servos-pastorais-list" class="pastorais-checkbox-grid">
+                    <!-- Gerado via JS -->
+                </div>
+            </div>
+
+            <div class="form-actions mt-6">
+                <button type="submit" class="btn btn-primary"><i class="ph ph-eye"></i> Visualizar Relatório</button>
+            </div>
+        </form>
+    </template>
+
+    <template id="view-relatorio-servos-preview">
+        <div class="view-header no-print">
+            <h2><button class="btn-icon" onclick="app.navTo('relatorio-servos-filtro')"><i
+                        class="ph ph-arrow-left"></i></button> Visualização do Relatório</h2>
+            <button class="btn btn-primary" onclick="window.print()"><i class="ph ph-printer"></i> Imprimir /
+                PDF</button>
+        </div>
+
+        <div id="relatorio-servos-content" class="report-print-container glass-panel mt-4">
+            <!-- Gerado via JS -->
+            <p style="text-align:center; padding: 2rem;">Gerando relatório...</p>
+        </div>
+    </template>
 
     <script src="app.js"></script>
 </body>

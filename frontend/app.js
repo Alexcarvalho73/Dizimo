@@ -18,6 +18,18 @@ const app = {
         return fetch(url, { ...options, headers });
     },
 
+    async handleResponseError(res, defaultMsg) {
+        let msg = defaultMsg || 'Ocorreu um erro inesperado';
+        try {
+            const data = await res.json();
+            if (data.error) msg = data.error;
+            else if (data.message) msg = data.message;
+        } catch (e) {
+            // Se não for JSON, não faz nada
+        }
+        this.showToast(msg, 'error');
+    },
+
     init() {
         this.container = document.getElementById('app-container');
 
@@ -220,7 +232,12 @@ const app = {
             'usuarios': 'Gestão de Usuários',
             'usuario-form': 'Cadastro de Usuário',
             'perfis': 'Perfis de Acesso',
-            'perfil-form': 'Cadastro de Perfil'
+            'perfil-form': 'Cadastro de Perfil',
+            'pastorais': 'Gestão de Pastorais',
+            'pastoral-form': 'Cadastro de Pastoral',
+            'relatorios': 'Central de Relatórios',
+            'relatorio-servos-filtro': 'Escala de Servos - Filtros',
+            'relatorio-servos-preview': 'Visualização do Relatório'
         };
         const titleEl = document.getElementById('page-title');
         if (titleEl && titles[viewId]) titleEl.textContent = titles[viewId];
@@ -242,6 +259,9 @@ const app = {
         if (viewId === 'usuario-form') this.setupUsuarioForm();
         if (viewId === 'perfis') this.loadPerfis();
         if (viewId === 'perfil-form') this.setupPerfilForm();
+        if (viewId === 'pastorais') this.loadPastoraisList();
+        if (viewId === 'pastoral-form') this.setupPastoralForm();
+        if (viewId === 'relatorio-servos-filtro') this.setupRelatorioServosFiltro();
     },
 
     // --- View Implementations ---
@@ -594,19 +614,83 @@ const app = {
         document.getElementById('diz-observacoes').value = '';
 
         const cpfInput = document.getElementById('diz-cpf');
+        const cepInput = document.getElementById('diz-cep');
+        const endInput = document.getElementById('diz-endereco');
+        const bairroInput = document.getElementById('diz-bairro');
+        const cidadeInput = document.getElementById('diz-cidade');
+
+        // Máscara CPF
         cpfInput.addEventListener('input', (e) => {
             let val = e.target.value.replace(/\D/g, '');
             if (val.length > 11) val = val.slice(0, 11);
-
-            if (val.length > 9) {
-                val = val.replace(/(\d{3})(\d{3})(\d{3})(\d{1,2})/, '$1.$2.$3-$4');
-            } else if (val.length > 6) {
-                val = val.replace(/(\d{3})(\d{3})(\d{1,3})/, '$1.$2.$3');
-            } else if (val.length > 3) {
-                val = val.replace(/(\d{3})(\d{1,3})/, '$1.$2');
-            }
+            if (val.length > 9) val = val.replace(/(\d{3})(\d{3})(\d{3})(\d{1,2})/, '$1.$2.$3-$4');
+            else if (val.length > 6) val = val.replace(/(\d{3})(\d{3})(\d{1,3})/, '$1.$2.$3');
+            else if (val.length > 3) val = val.replace(/(\d{3})(\d{1,3})/, '$1.$2');
             e.target.value = val;
         });
+
+        // Máscara e Busca CEP
+        cepInput.addEventListener('input', (e) => {
+            let val = e.target.value.replace(/\D/g, '');
+            if (val.length > 8) val = val.slice(0, 8);
+            if (val.length > 5) val = val.replace(/(\d{5})(\d{1,3})/, '$1-$2');
+            e.target.value = val;
+        });
+
+        cepInput.addEventListener('blur', async () => {
+            const cep = cepInput.value.replace(/\D/g, '');
+            if (cep.length === 8) {
+                try {
+                    cepInput.disabled = true;
+                    this.showToast('Buscando endereço...');
+                    const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+                    const data = await response.json();
+                    
+                    if (data.erro) {
+                        this.showToast('CEP não encontrado', 'error');
+                    } else {
+                        endInput.value = data.logradouro || '';
+                        bairroInput.value = data.bairro || '';
+                        cidadeInput.value = data.localidade || '';
+                        this.showToast('Endereço carregado!');
+                    }
+                } catch (e) {
+                    this.showToast('Erro ao buscar CEP', 'error');
+                } finally {
+                    cepInput.disabled = false;
+                }
+            }
+        });
+
+        // Vínculo com Pastorais
+        const pastoralListCont = document.getElementById('diz-pastorais-list');
+        const loadPastoralCheckboxes = async () => {
+            const pastorais = await this._getAllPastorais();
+            pastoralListCont.innerHTML = '';
+            if (pastorais.length === 0) {
+                pastoralListCont.innerHTML = '<span style="color: var(--text-muted); font-style: italic;">Nenhuma pastoral cadastrada.</span>';
+                return;
+            }
+            
+            // Se for edição, buscar vínculos atuais
+            let vinculadas = [];
+            const dizId = document.getElementById('diz-id').value;
+            if (dizId) {
+                const resV = await this.authFetch(`${API_URL}/dizimistas/${dizId}/pastorais`);
+                if (resV.ok) vinculadas = await resV.json();
+            }
+
+            pastorais.forEach(p => {
+                const item = document.createElement('label');
+                item.className = 'pastoral-checkbox-item';
+                item.innerHTML = `
+                    <input type="checkbox" name="pastoral" value="${p.id_pastoral}" ${vinculadas.includes(p.id_pastoral) ? 'checked' : ''}>
+                    <span>${p.nome}</span>
+                `;
+                pastoralListCont.appendChild(item);
+            });
+        };
+        loadPastoralCheckboxes();
 
         newForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -636,6 +720,17 @@ const app = {
                     body: JSON.stringify(data)
                 });
                 if (res.ok) {
+                    const resData = await res.json();
+                    const newId = id || resData.id;
+                    
+                    // Salvar vínculos pastorais
+                    const selectedPastorais = Array.from(pastoralListCont.querySelectorAll('input[type="checkbox"]:checked')).map(cb => parseInt(cb.value));
+                    await this.authFetch(`${API_URL}/dizimistas/${newId}/pastorais`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ pastorais: selectedPastorais })
+                    });
+
                     this.showToast(id ? 'Dizimista atualizado com sucesso!' : 'Dizimista cadastrado com sucesso!');
                     this.navTo('dizimistas');
                 } else {
@@ -1084,6 +1179,24 @@ const app = {
         }
     },
 
+    _calcularProximasDatas(dataInicial, dataFinal, frequencia) {
+        const datas = [];
+        let atual = new Date(dataInicial + 'T12:00:00');
+        const fim = new Date(dataFinal + 'T12:00:00');
+
+        while (atual <= fim) {
+            datas.push(atual.toISOString().split('T')[0]);
+            if (frequencia === 'diaria') {
+                atual.setDate(atual.getDate() + 1);
+            } else if (frequencia === 'semanal') {
+                atual.setDate(atual.getDate() + 7);
+            } else if (frequencia === 'mensal') {
+                atual.setMonth(atual.getMonth() + 1);
+            }
+        }
+        return datas;
+    },
+
     async loadMissas() {
         try {
             const res = await app.authFetch(`${API_URL}/missas`);
@@ -1093,31 +1206,43 @@ const app = {
                 if (!tbody) return;
                 tbody.innerHTML = '';
                 if (missas.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-muted);">Nenhuma missa cadastrada</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-muted);">Nenhuma missa cadastrada</td></tr>';
                     return;
                 }
-                missas.forEach(m => {
-                    const dataFmt = m.data_missa ? new Date(m.data_missa + 'T00:00').toLocaleDateString('pt-BR') : m.data_missa;
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td><strong>${dataFmt}</strong></td>
-                        <td>${m.hora || '-'}</td>
-                        <td>${m.comunidade || '-'}</td>
-                        <td>${m.celebrante || '-'}</td>
-                        <td><span class="badge badge-success">${m.tipo || '-'}</span></td>
-                        <td>
-                            <button class="btn-icon btn-edit-missa" data-missa='${JSON.stringify(m)}' title="Editar"><i class="ph ph-pencil-simple"></i></button>
-                            <button class="btn-icon btn-del-missa" data-id="${m.id_missa}" title="Excluir" style="color:var(--error-color)"><i class="ph ph-trash"></i></button>
-                        </td>
-                    `;
-                    tbody.appendChild(tr);
-                });
+                    missas.forEach(m => {
+                        const dataFmt = m.data_missa ? new Date(m.data_missa + 'T00:00').toLocaleDateString('pt-BR') : m.data_missa;
+                        
+                        // Status de Vagas
+                        let vagasStatus = `—`;
+                        if (m.total_vagas > 0) {
+                            const cor = m.preenchidas >= m.total_vagas ? 'var(--success-color)' : 'var(--error-color)';
+                            vagasStatus = `<strong style="color:${cor}">${m.preenchidas} / ${m.total_vagas}</strong>`;
+                        } else {
+                            vagasStatus = `<span style="color:var(--text-muted); font-size: 0.8rem;">(Sem req.)</span>`;
+                        }
+
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td><strong>${dataFmt}</strong></td>
+                            <td>${m.hora || '-'}</td>
+                            <td>${m.comunidade || '-'}</td>
+                            <td>${m.celebrante || '-'}</td>
+                            <td><span class="badge badge-success">${m.tipo || '-'}</span></td>
+                            <td style="text-align:center;">${vagasStatus}</td>
+                            <td class="actions-cell">
+                                <button class="btn-icon btn-toggle-servos" data-id="${m.id_missa}" title="Ver Escala de Servos"><i class="ph ph-plus-circle" style="color:var(--primary-color)"></i></button>
+                                <button class="btn-icon btn-edit-missa" data-missa='${JSON.stringify(m)}' title="Editar"><i class="ph ph-pencil-simple"></i></button>
+                                <button class="btn-icon btn-del-missa" data-id="${m.id_missa}" title="Excluir" style="color:var(--error-color)"><i class="ph ph-trash"></i></button>
+                            </td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
 
                 document.querySelectorAll('.btn-edit-missa').forEach(btn => {
                     btn.addEventListener('click', (e) => {
                         const m = JSON.parse(e.currentTarget.getAttribute('data-missa'));
+                        this.state.editingMissa = m;
                         this.navTo('missa-form');
-                        setTimeout(() => this.fillMissaForm(m), 100);
                     });
                 });
 
@@ -1130,9 +1255,17 @@ const app = {
                                 this.showToast('Missa excluída!');
                                 this.loadMissas();
                             } else {
-                                this.showToast('Erro ao excluir', 'error');
+                                await this.handleResponseError(delRes, 'Erro ao excluir');
                             }
                         }
+                    });
+                });
+
+                document.querySelectorAll('.btn-toggle-servos').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const id = e.currentTarget.getAttribute('data-id');
+                        const row = e.currentTarget.closest('tr');
+                        this.toggleMissaServos(row, id);
                     });
                 });
             }
@@ -1141,62 +1274,197 @@ const app = {
         }
     },
 
-    setupMissaForm() {
-        document.getElementById('title-missa-form').textContent = 'Nova Missa';
-        document.getElementById('missa-id').value = '';
-        document.getElementById('missa-data').value = '';
-        document.getElementById('missa-hora').value = '';
-        document.getElementById('missa-tipo').value = '';
-        document.getElementById('missa-comunidade').value = '';
-        document.getElementById('missa-celebrante').value = '';
+    async setupMissaForm() {
+        const title = document.getElementById('title-missa-form');
+        if (title) title.textContent = 'Nova Missa';
 
         const form = document.getElementById('form-missa');
+        if (!form) return;
+
+        // Clonamos para limpar eventos anteriores
         const newForm = form.cloneNode(true);
         form.parentNode.replaceChild(newForm, form);
 
+        // Captura elementos dentro do formulário novo/ativo
+        const idInput = newForm.querySelector('#missa-id');
+        const dataInput = newForm.querySelector('#missa-data');
+        const horaInput = newForm.querySelector('#missa-hora');
+        const tipoSelect = newForm.querySelector('#missa-tipo');
+        const comInput = newForm.querySelector('#missa-comunidade');
+        const celInput = newForm.querySelector('#missa-celebrante');
+        
+        const chkRec = newForm.querySelector('#missa-recorrente');
+        const optRec = newForm.querySelector('#missa-recorrente-options');
+        const dataFimInput = newForm.querySelector('#missa-data-fim');
+        const freqSelect = newForm.querySelector('#missa-frequencia');
+        const sectionRec = newForm.querySelector('#section-recorrencia');
+
+        // Pastorais dynamic list
+        const pastoralContainer = newForm.querySelector('#missa-pastorais-container');
+        const btnAddPastoral = newForm.querySelector('#btn-add-pastoral-missa');
+        
+        // Função para carregar pastorais no select
+        const allPastorais = await this._getAllPastorais();
+
+        const addPastoralRow = (selectedId = '', quantity = 1) => {
+            const row = document.createElement('div');
+            row.className = 'pastoral-row mt-2';
+            row.innerHTML = `
+                <div class="input-group">
+                    <select class="p-select">
+                        <option value="">Selecione Pastoral...</option>
+                        ${allPastorais.map(p => `<option value="${p.id_pastoral}" ${p.id_pastoral == selectedId ? 'selected' : ''}>${p.nome}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="input-group" style="flex: 0 0 80px;">
+                    <label style="font-size: 0.75rem;">Qtd</label>
+                    <input type="number" class="p-qty" value="${quantity}" min="1">
+                </div>
+                <button type="button" class="btn-icon btn-remove-p" title="Remover"><i class="ph ph-trash"></i></button>
+            `;
+            row.querySelector('.btn-remove-p').onclick = () => row.remove();
+            pastoralContainer.appendChild(row);
+        };
+
+        if (btnAddPastoral) {
+            btnAddPastoral.onclick = () => addPastoralRow();
+        }
+
+        // Preenchimento (Novo vs Edição)
+        if (this.state.editingMissa) {
+            const m = this.state.editingMissa;
+            document.getElementById('title-missa-form').textContent = 'Editar Missa';
+            idInput.value = m.id_missa;
+            
+            let dt = m.data_missa || '';
+            if (dt.includes('T')) dt = dt.split('T')[0];
+            if (dt.includes(' ')) dt = dt.split(' ')[0];
+            dataInput.value = dt;
+            
+            horaInput.value = m.hora || '';
+            tipoSelect.value = m.tipo || '';
+            comInput.value = m.comunidade || '';
+            celInput.value = m.celebrante || '';
+
+            if (m.pastorais && m.pastorais.length > 0) {
+                m.pastorais.forEach(p => addPastoralRow(p.id_pastoral, p.quantidade));
+            }
+            if (sectionRec) sectionRec.style.display = 'none';
+
+            delete this.state.editingMissa;
+        } else {
+            // Reset para Novo
+            idInput.value = '';
+            dataInput.value = '';
+            horaInput.value = '';
+            tipoSelect.value = '';
+            comInput.value = '';
+            celInput.value = '';
+            dataFimInput.value = '';
+            if (sectionRec) sectionRec.style.display = 'block';
+        }
+
+        if (chkRec && optRec) {
+            chkRec.checked = false;
+            optRec.style.display = 'none';
+            chkRec.addEventListener('change', () => {
+                optRec.style.display = chkRec.checked ? 'block' : 'none';
+            });
+        }
+
         newForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const id = document.getElementById('missa-id').value;
-            const data = {
-                data_missa: document.getElementById('missa-data').value,
-                hora: document.getElementById('missa-hora').value,
-                tipo: document.getElementById('missa-tipo').value,
-                comunidade: document.getElementById('missa-comunidade').value,
-                celebrante: document.getElementById('missa-celebrante').value,
+            const id = idInput.value;
+            const isRec = chkRec ? chkRec.checked : false;
+
+            // Coletar pastorais
+            const pastoraisReq = [];
+            newForm.querySelectorAll('.pastoral-row').forEach(r => {
+                const p_id = r.querySelector('.p-select').value;
+                const qty = r.querySelector('.p-qty').value;
+                if (p_id) {
+                    pastoraisReq.push({
+                        id_pastoral: p_id,
+                        quantidade: qty
+                    });
+                }
+            });
+
+            const baseData = {
+                hora: horaInput.value,
+                tipo: tipoSelect.value,
+                comunidade: comInput.value,
+                celebrante: celInput.value,
+                pastorais: pastoraisReq
             };
 
-            try {
-                const method = id ? 'PUT' : 'POST';
-                const url = id ? `${API_URL}/missas/${id}` : `${API_URL}/missas`;
-                const res = await app.authFetch(url, {
-                    method,
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-                if (res.ok) {
-                    this.showToast(id ? 'Missa atualizada!' : 'Missa cadastrada!');
-                    this.navTo('missas');
-                } else {
-                    this.showToast('Erro ao salvar missa', 'error');
+            let datasParaSalvar = [];
+            if (isRec && !id) { // Recorrência apenas no cadastro novo
+                const dtIni = dataInput.value;
+                const dtFim = dataFimInput.value;
+                const freq = freqSelect.value;
+
+                if (!dtIni || !dtFim) {
+                    this.showToast('Informe a data inicial e final para a recorrência', 'error');
+                    return;
                 }
-            } catch (err) {
-                this.showToast('Erro de conexão', 'error');
+                datasParaSalvar = this._calcularProximasDatas(dtIni, dtFim, freq);
+            } else {
+                const dt = dataInput.value;
+                if (!dt) {
+                    this.showToast('Informe a data da missa', 'error');
+                    return;
+                }
+                datasParaSalvar = [dt];
+            }
+
+            if (datasParaSalvar.length > 1) {
+                if (!confirm(`Deseja criar ${datasParaSalvar.length} missas?`)) return;
+            }
+
+            const btn = newForm.querySelector('button[type="submit"]');
+            btn.disabled = true;
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="ph ph-circle-notch ph-spin"></i> Salvando...';
+
+            let sucessos = 0;
+            let erros = 0;
+            let lastError = '';
+
+            for (const dataMissa of datasParaSalvar) {
+                try {
+                    const method = id ? 'PUT' : 'POST';
+                    const url = id ? `${API_URL}/missas/${id}` : `${API_URL}/missas`;
+                    const res = await app.authFetch(url, {
+                        method,
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ...baseData, data_missa: dataMissa })
+                    });
+                    
+                    if (res.ok) {
+                        sucessos++;
+                    } else {
+                        erros++;
+                        const errData = await res.json().catch(() => ({}));
+                        lastError = errData.error || 'Erro no servidor';
+                    }
+                } catch (err) {
+                    erros++;
+                    lastError = 'Erro de conexão';
+                }
+            }
+
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+
+            if (sucessos > 0) {
+                this.showToast(id ? 'Missa atualizada!' : (datasParaSalvar.length > 1 ? `${sucessos} missas criadas!` : 'Missa cadastrada!'));
+                this.navTo('missas');
+            } else {
+                // Se der um erro comum que já capturamos no loop, ele está em lastError
+                this.showToast(lastError || 'Não foi possível salvar as missas. Verifique sua conexão ou permissões.', 'error');
             }
         });
-    },
-
-    fillMissaForm(m) {
-        document.getElementById('title-missa-form').textContent = 'Editar Missa';
-        document.getElementById('missa-id').value = m.id_missa;
-        // Formatar data YYYY-MM-DD para input type=date
-        let dt = m.data_missa || '';
-        if (dt.includes('T')) dt = dt.split('T')[0];
-        if (dt.includes(' ')) dt = dt.split(' ')[0];
-        document.getElementById('missa-data').value = dt;
-        document.getElementById('missa-hora').value = m.hora || '';
-        document.getElementById('missa-tipo').value = m.tipo || '';
-        document.getElementById('missa-comunidade').value = m.comunidade || '';
-        document.getElementById('missa-celebrante').value = m.celebrante || '';
     },
 
     async setupUsuarioForm() {
@@ -1206,6 +1474,8 @@ const app = {
         document.getElementById('usr-login').value = '';
         document.getElementById('usr-senha').value = '';
         document.getElementById('usr-senha').required = true;
+        document.getElementById('usr-dizimista-id').value = '';
+        document.getElementById('usr-dizimista-search').value = '';
 
         try {
             const res = await app.authFetch(`${API_URL}/perfis`);
@@ -1231,6 +1501,7 @@ const app = {
                 login: document.getElementById('usr-login').value,
                 id_perfil: document.getElementById('usr-perfil').value,
                 senha: document.getElementById('usr-senha').value,
+                id_dizimista: document.getElementById('usr-dizimista-id').value || null,
                 current_user_id: this.state.user.login
             };
 
@@ -1254,6 +1525,8 @@ const app = {
                 this.showToast('Erro de conexão', 'error');
             }
         });
+
+        this._setupDizimistaSearchForUser(newForm);
     },
 
     fillUsuarioForm(u) {
@@ -1261,6 +1534,8 @@ const app = {
         document.getElementById('usr-id').value = u.id_usuario;
         document.getElementById('usr-nome').value = u.nome;
         document.getElementById('usr-login').value = u.login;
+        document.getElementById('usr-dizimista-id').value = u.id_dizimista || '';
+        document.getElementById('usr-dizimista-search').value = u.nome_dizimista || '';
 
         // Verifica existencia do perfil ciclicamente (robusto contra lentidão da nuvem)
         const setProfile = () => {
@@ -1563,112 +1838,396 @@ const app = {
         }
     },
 
-    async loadMissas() {
+    // --- Pastoral Management ---
+    async loadPastoraisList() {
         try {
-            const res = await app.authFetch(`${API_URL}/missas`);
-            if (!res.ok) return;
-            const missas = await res.json();
-            const tbody = document.getElementById('tb-missas');
-            if (!tbody) return;
-            tbody.innerHTML = '';
-
-            if (missas.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted)">Nenhuma missa cadastrada.</td></tr>';
-                return;
+            const res = await this.authFetch(`${API_URL}/pastorais`);
+            const pastorais = await res.json();
+            const tbody = document.getElementById('tb-pastorais');
+            if (tbody) {
+                tbody.innerHTML = '';
+                pastorais.forEach(p => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${p.nome}</td>
+                        <td class="actions-cell">
+                            <button class="btn-icon" onclick="app.editPastoral(${p.id_pastoral})" title="Editar"><i class="ph ph-pencil"></i></button>
+                            <button class="btn-icon" onclick="app.deletePastoral(${p.id_pastoral})" title="Excluir"><i class="ph ph-trash" style="color: var(--error-color);"></i></button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
             }
-
-            missas.forEach(m => {
-                const tr = document.createElement('tr');
-                const dataFmt = m.data ? new Date(m.data + 'T00:00:00').toLocaleDateString('pt-BR') : '-';
-                tr.innerHTML = `
-                    <td>${dataFmt}</td>
-                    <td>${m.hora || '-'}</td>
-                    <td>${m.tipo || '-'}</td>
-                    <td>${m.celebrante || '-'}</td>
-                    <td>${m.comunidade || '-'}</td>
-                    <td>
-                        <button class="btn-icon btn-edit-miss" data-missa='${JSON.stringify(m)}' title="Editar"><i class="ph ph-pencil-simple"></i></button>
-                        <button class="btn-icon btn-del-miss" data-id="${m.id_missa}" title="Excluir" style="color:var(--error-color)"><i class="ph ph-trash"></i></button>
-                    </td>
-                `;
-                tbody.appendChild(tr);
-            });
-
-            document.querySelectorAll('.btn-edit-miss').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const mis = JSON.parse(e.currentTarget.getAttribute('data-missa'));
-                    this.navTo('missa-form');
-                    setTimeout(() => this.fillMissaForm(mis), 100);
-                });
-            });
-
-            document.querySelectorAll('.btn-del-miss').forEach(btn => {
-                btn.addEventListener('click', async (e) => {
-                    if (confirm('Excluir esta missa?')) {
-                        const id = e.currentTarget.getAttribute('data-id');
-                        await app.authFetch(`${API_URL}/missas/${id}`, { method: 'DELETE' });
-                        this.showToast('Missa excluída');
-                        this.loadMissas();
-                    }
-                });
-            });
-        } catch (e) {
-            this.showToast('Erro ao carregar missas', 'error');
+        } catch (error) {
+            this.showToast('Erro ao carregar pastorais', 'error');
         }
     },
 
-    async setupMissaForm() {
-        document.getElementById('title-missa-form').textContent = 'Nova Missa';
-        document.getElementById('miss-id').value = '';
-        document.getElementById('miss-data').value = '';
-        document.getElementById('miss-hora').value = '';
-        document.getElementById('miss-tipo').value = '';
-        document.getElementById('miss-celebrante').value = '';
-        document.getElementById('miss-comunidade').value = '';
+    async setupPastoralForm() {
+        const form = document.getElementById('form-pastoral');
+        const idInput = document.getElementById('pastoral-id');
+        const nomeInput = document.getElementById('pastoral-nome');
 
-        const form = document.getElementById('form-missa');
-        const newForm = form.cloneNode(true);
-        form.parentNode.replaceChild(newForm, form);
+        if (this.state.editingPastoral) {
+            idInput.value = this.state.editingPastoral.id_pastoral;
+            nomeInput.value = this.state.editingPastoral.nome;
+            document.getElementById('title-pastoral-form').textContent = 'Editar Pastoral';
+            delete this.state.editingPastoral;
+        }
 
-        newForm.addEventListener('submit', async (e) => {
+        form.onsubmit = async (e) => {
             e.preventDefault();
-            const id = document.getElementById('miss-id').value;
-            const payload = {
-                data: document.getElementById('miss-data').value,
-                hora: document.getElementById('miss-hora').value,
-                tipo: document.getElementById('miss-tipo').value,
-                celebrante: document.getElementById('miss-celebrante').value,
-                comunidade: document.getElementById('miss-comunidade').value
-            };
+            const payload = { nome: nomeInput.value };
+            const id = idInput.value;
             const method = id ? 'PUT' : 'POST';
-            const url = id ? `${API_URL}/missas/${id}` : `${API_URL}/missas`;
+            const url = id ? `${API_URL}/pastorais/${id}` : `${API_URL}/pastorais`;
+
             try {
-                const res = await app.authFetch(url, {
-                    method,
+                const res = await this.authFetch(url, {
+                    method: method,
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
                 if (res.ok) {
-                    this.showToast('Missa salva com sucesso!');
-                    this.navTo('missas');
+                    this.showToast('Pastoral salva com sucesso');
+                    this.navTo('pastorais');
                 } else {
-                    this.showToast('Erro ao salvar', 'error');
+                    this.handleResponseError(res);
                 }
-            } catch {
+            } catch (error) {
                 this.showToast('Erro de conexão', 'error');
             }
+        };
+    },
+
+    async editPastoral(id) {
+        try {
+            const res = await this.authFetch(`${API_URL}/pastorais`);
+            const pastorais = await res.json();
+            const p = pastorais.find(x => x.id_pastoral === id);
+            this.state.editingPastoral = p;
+            this.navTo('pastoral-form');
+        } catch (error) {
+            this.showToast('Erro ao buscar detalhes da pastoral', 'error');
+        }
+    },
+
+    async deletePastoral(id) {
+        if (!confirm('Deseja realmente excluir esta pastoral?')) return;
+        try {
+            const res = await this.authFetch(`${API_URL}/pastorais/${id}`, { method: 'DELETE' });
+            if (res.ok) {
+                this.showToast('Pastoral excluída');
+                this.loadPastoraisList();
+            } else {
+                this.handleResponseError(res);
+            }
+        } catch (error) {
+            this.showToast('Erro ao excluir', 'error');
+        }
+    },
+
+    async _getAllPastorais() {
+        try {
+            const res = await this.authFetch(`${API_URL}/pastorais`);
+            if (res.ok) return await res.json();
+            return [];
+        } catch (e) { return []; }
+    },
+
+    _setupDizimistaSearchForUser(container) {
+        const input = container.querySelector('#usr-dizimista-search');
+        const hiddenId = container.querySelector('#usr-dizimista-id');
+        const results = container.querySelector('#usr-dizimista-results');
+
+        if (!input) return;
+
+        input.addEventListener('input', async () => {
+            const q = input.value.trim();
+            if (q.length < 2) {
+                results.style.display = 'none';
+                return;
+            }
+
+            try {
+                const res = await app.authFetch(`${API_URL}/dizimistas/busca?q=${encodeURIComponent(q)}`);
+                const data = await res.json();
+                results.innerHTML = '';
+                if (data.length > 0) {
+                    data.forEach(d => {
+                        const item = document.createElement('div');
+                        item.className = 'autocomplete-item';
+                        item.innerHTML = `<strong>${d.nome}</strong><small>CPF: ${d.cpf || '—'}</small>`;
+                        item.addEventListener('click', () => {
+                            input.value = d.nome;
+                            hiddenId.value = d.id_dizimista;
+                            results.style.display = 'none';
+                        });
+                        results.appendChild(item);
+                    });
+                    results.style.display = 'block';
+                } else {
+                    results.style.display = 'none';
+                }
+            } catch (e) { }
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!container.contains(e.target)) results.style.display = 'none';
         });
     },
 
-    fillMissaForm(m) {
-        document.getElementById('title-missa-form').textContent = 'Editar Missa';
-        document.getElementById('miss-id').value = m.id_missa;
-        document.getElementById('miss-data').value = m.data || '';
-        document.getElementById('miss-hora').value = m.hora || '';
-        document.getElementById('miss-tipo').value = m.tipo || '';
-        document.getElementById('miss-celebrante').value = m.celebrante || '';
-        document.getElementById('miss-comunidade').value = m.comunidade || '';
-    }
+    async toggleMissaServos(row, missaId) {
+        const nextRow = row.nextElementSibling;
+        if (nextRow && nextRow.classList.contains('servos-details-row')) {
+            nextRow.remove();
+            row.querySelector('.btn-toggle-servos i').classList.replace('ph-minus-circle', 'ph-plus-circle');
+            return;
+        }
+
+        // Collapse others if wanted? (Optional)
+        row.querySelector('.btn-toggle-servos i').classList.replace('ph-plus-circle', 'ph-minus-circle');
+        
+        const detailsTr = document.createElement('tr');
+        detailsTr.className = 'servos-details-row';
+        detailsTr.innerHTML = `<td colspan="7" style="padding:0;"><div id="servos-cont-${missaId}" class="servos-details-container">Carregando escala...</div></td>`;
+        row.after(detailsTr);
+
+        this.renderMissaServos(missaId);
+    },
+
+    async renderMissaServos(missaId) {
+        const container = document.getElementById(`servos-cont-${missaId}`);
+        if (!container) return;
+
+        try {
+            // Buscar os requisitos da missa (já temos no state ou buscamos)
+            const resM = await this.authFetch(`${API_URL}/missas/${missaId}`);
+            if (!resM.ok) throw new Error();
+            const missa = await resM.json();
+
+            // Buscar servos já escalados
+            const resS = await this.authFetch(`${API_URL}/missas/${missaId}/servos`);
+            const servos = resS.ok ? await resS.json() : [];
+
+            let html = `<h3><i class="ph ph-users-three"></i> Escala de Servos - ${missa.tipo}</h3><div class="mt-4">`;
+
+            if (!missa.pastorais || missa.pastorais.length === 0) {
+                html += '<p style="color:var(--text-muted); font-style:italic;">Nenhum requisito de pastoral definido para esta missa.</p>';
+            } else {
+                missa.pastorais.forEach(req => {
+                    const servsDestaPastoral = servos.filter(s => s.id_pastoral === req.id_pastoral);
+                    
+                    html += `
+                        <div class="pastoral-servos-group">
+                            <h4><i class="ph ph-bookmark-simple"></i> ${req.pastoral_nome || 'Pastoral'} (${req.quantidade} vagas)</h4>
+                            <div class="servos-slots-grid">
+                    `;
+
+                    // Renderizar vagas preenchidas
+                    servsDestaPastoral.forEach(s => {
+                        html += `
+                            <div class="servo-slot assigned">
+                                <div class="servo-info">
+                                    <i class="ph ph-user-check"></i>
+                                    <span>${s.dizimista_nome}</span>
+                                </div>
+                                <button class="btn-remove-servo" onclick="app.removeMissaServo(${s.id_missa_servo}, ${missaId})" title="Remover da escala">
+                                    <i class="ph ph-x-circle"></i>
+                                </button>
+                            </div>
+                        `;
+                    });
+
+                    // Renderizar vagas vazias (slots restantes)
+                    const vagasRestantes = req.quantidade - servsDestaPastoral.length;
+                    for (let i = 0; i < vagasRestantes; i++) {
+                        html += `
+                            <div class="servo-slot">
+                                <div class="servo-info">
+                                    <i class="ph ph-user-plus"></i>
+                                    <span style="color:var(--text-muted); font-style:italic;">Vaga disponível</span>
+                                </div>
+                                <button class="btn-assign" onclick="app.openAssignServoModal(${missaId}, ${req.id_pastoral}, '${req.pastoral_nome}')">
+                                    Escalar
+                                </button>
+                            </div>
+                        `;
+                    }
+
+                    html += `</div></div>`;
+                });
+            }
+
+            html += '</div>';
+            container.innerHTML = html;
+        } catch (err) {
+            container.innerHTML = '<p style="color:var(--error-color);">Erro ao carregar detalhes da escala.</p>';
+        }
+    },
+
+    async openAssignServoModal(missaId, pastoralId, pastoralNome) {
+        const modal = document.getElementById('modal-select-servo');
+        const select = document.getElementById('select-servo-dizimista');
+        const label = document.getElementById('servo-pastoral-label');
+        const btn = document.getElementById('btn-confirm-assign');
+
+        label.textContent = `Escalando para: ${pastoralNome}`;
+        select.innerHTML = '<option value="">Carregando membros...</option>';
+        modal.style.display = 'flex';
+
+        try {
+            const res = await this.authFetch(`${API_URL}/pastorais/${pastoralId}/membros`);
+            if (res.ok) {
+                const membros = await res.json();
+                if (membros.length === 0) {
+                    select.innerHTML = '<option value="">Nenhum membro vinculado a esta pastoral</option>';
+                } else {
+                    select.innerHTML = '<option value="">Selecione um membro...</option>';
+                    membros.forEach(m => {
+                        select.innerHTML += `<option value="${m.id_dizimista}">${m.nome}</option>`;
+                    });
+                }
+            }
+        } catch (e) {
+            select.innerHTML = '<option value="">Erro ao carregar membros</option>';
+        }
+
+        btn.onclick = async () => {
+            const dizId = select.value;
+            if (!dizId) return alert('Selecione um dizimista');
+
+            const res = await this.authFetch(`${API_URL}/missas/${missaId}/servos`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id_pastoral: pastoralId, id_dizimista: dizId })
+            });
+
+            if (res.ok) {
+                modal.style.display = 'none';
+                this.renderMissaServos(missaId);
+                this.showToast('Membro escalado!');
+            } else {
+                const err = await res.json();
+                alert(err.error || 'Erro ao escalar membro');
+            }
+        };
+    },
+
+    async removeMissaServo(vinculoId, missaId) {
+        if (!confirm('Deseja remover este membro da escala?')) return;
+        const res = await this.authFetch(`${API_URL}/missas/servos/${vinculoId}`, { method: 'DELETE' });
+        if (res.ok) {
+            this.renderMissaServos(missaId);
+            this.showToast('Membro removido da escala');
+        }
+    },
+
+    // --- Relatórios Logic ---
+
+    async setupRelatorioServosFiltro() {
+        const form = document.getElementById('form-relatorio-servos');
+        const pastList = document.getElementById('rel-servos-pastorais-list');
+        
+        // Datas padrão (mês atual)
+        const now = new Date();
+        const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+        const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+        
+        const inicioEl = document.getElementById('rel-servos-inicio');
+        const fimEl = document.getElementById('rel-servos-fim');
+        if (inicioEl) inicioEl.value = firstDay;
+        if (fimEl) fimEl.value = lastDay;
+
+        // Carregar pastorais
+        if (pastList) {
+            try {
+                const res = await this.authFetch(`${API_URL}/pastorais`);
+                if (res.ok) {
+                    const pastorais = await res.json();
+                    pastList.innerHTML = '';
+                    pastorais.forEach(p => {
+                        const item = document.createElement('label');
+                        item.className = 'pastoral-checkbox-item';
+                        item.innerHTML = `<input type="checkbox" name="pastorais" value="${p.id_pastoral}"> <span>${p.nome}</span>`;
+                        pastList.appendChild(item);
+                    });
+                }
+            } catch (e) { }
+        }
+
+        if (form) {
+            form.onsubmit = async (e) => {
+                e.preventDefault();
+                const start = document.getElementById('rel-servos-inicio').value;
+                const end = document.getElementById('rel-servos-fim').value;
+                const selected = Array.from(form.querySelectorAll('input[name="pastorais"]:checked')).map(v => v.value);
+                
+                this.state.relFilters = { start, end, pastorais: selected.join(',') };
+                this.navTo('relatorio-servos-preview');
+                this.gerarRelatorioServos(start, end, selected.join(','));
+            };
+        }
+    },
+
+    async gerarRelatorioServos(start, end, pastorais) {
+        const container = document.getElementById('relatorio-servos-content');
+        if (!container) return;
+
+        try {
+            const url = `${API_URL}/relatorios/servos-missa?data_inicio=${start}&data_fim=${end}&pastorais=${pastorais}`;
+            const res = await this.authFetch(url);
+            if (!res.ok) throw new Error('Falha ao gerar relatório');
+            
+            const data = await res.json();
+            
+            let html = `
+                <div class="report-header">
+                    <h1>Escala de Servos por Missa</h1>
+                    <p>Período: ${new Date(start + 'T00:00').toLocaleDateString('pt-BR')} a ${new Date(end + 'T00:00').toLocaleDateString('pt-BR')}</p>
+                    <p>Emitido em: ${new Date().toLocaleString('pt-BR')}</p>
+                </div>
+            `;
+
+            if (data.length === 0) {
+                html += '<p style="text-align:center; padding: 3rem; color: var(--text-muted);">Nenhuma missa com escala encontrada no período selecionado.</p>';
+            } else {
+                data.forEach(m => {
+                    const dataFmt = new Date(m.data_missa + 'T00:00').toLocaleDateString('pt-BR');
+                    html += `
+                        <div class="report-section">
+                            <div class="report-mass-header">
+                                <span>Missa: ${dataFmt} - ${m.hora}</span>
+                                <span>Celebrante: ${m.celebrante || '—'}</span>
+                                <span>Local: ${m.comunidade || '—'}</span>
+                            </div>
+                    `;
+
+                    m.pastorais.forEach(p => {
+                        html += `
+                            <div class="report-pastoral-group">
+                                <div class="report-pastoral-title">${p.pastoral_nome} (${p.quantidade} vagas)</div>
+                                <div class="report-servos-list">
+                        `;
+                        
+                        p.servos.forEach(s => {
+                            const isVago = s === '(vago)';
+                            html += `<div class="report-servo-item ${isVago ? 'vago' : ''}">${isVago ? '(vago)' : s}</div>`;
+                        });
+
+                        html += `</div></div>`;
+                    });
+
+                    html += `</div>`;
+                });
+            }
+
+            container.innerHTML = html;
+        } catch (err) {
+            container.innerHTML = `<p style="color:var(--error-color); text-align:center; padding: 2rem;">Erro ao carregar relatório: ${err.message}</p>`;
+        }
+    },
+
 };
 
 document.addEventListener('DOMContentLoaded', () => {
