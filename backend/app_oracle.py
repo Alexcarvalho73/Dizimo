@@ -43,7 +43,7 @@ def requires_permission(permission_name):
                  return jsonify({'error': 'Usuário não encontrado.'}), 401
             
             # Se for admin (perfil 1), libera direto
-            if int(user['id_perfil']) == 1:
+            if str(user['id_perfil']) == '1':
                 return f(*args, **kwargs)
 
             # Check if user has permission
@@ -225,6 +225,72 @@ def get_db():
             print(f'[DB] ERRO AO CONECTAR: {type(e).__name__}: {e}')
             raise e
     return db
+
+# --- Configurações & Parâmetros ---
+@app.route('/api/configuracoes', methods=['GET'])
+def get_configuracoes():
+    db = get_db()
+    rows = db.execute("SELECT chave, valor FROM configuracoes").fetchall()
+    return jsonify({r['chave']: r['valor'] for r in rows})
+
+@app.route('/api/configuracoes', methods=['PUT'])
+def update_configuracoes():
+    user_id = request.headers.get('X-User-Id')
+    db = get_db()
+    
+    # Verificação rígida de admin (Perfil 1)
+    user = db.execute("SELECT id_perfil FROM usuarios WHERE id_usuario = ?", (user_id,)).fetchone()
+    if not user or str(user['id_perfil']) != '1':
+        return jsonify({'error': 'Acesso Negado: Somente o perfil administrador pode alterar parâmetros.'}), 403
+
+    data = request.json
+    try:
+        for chave, valor in data.items():
+            # Tenta encontrar a chave primeiro
+            row = db.execute("SELECT chave FROM configuracoes WHERE chave = ?", (chave,)).fetchone()
+            if row:
+                db.execute("UPDATE configuracoes SET valor = ? WHERE chave = ?", (valor, chave))
+            else:
+                db.execute("INSERT INTO configuracoes (chave, valor) VALUES (?, ?)", (chave, valor))
+        db.commit()
+        return jsonify({'message': 'Configurações atualizadas com sucesso'})
+    except Exception as e:
+        print(f"[CONFIG] Erro: {e}")
+        return jsonify({'error': str(e)}), 500
+
+def init_configuracoes():
+    db = get_db()
+    try:
+        # Check if table exists
+        db.execute("SELECT chave FROM configuracoes WHERE 1=0")
+    except:
+        # Create table if error
+        try:
+            db.execute("CREATE TABLE configuracoes (chave VARCHAR2(50) PRIMARY KEY, valor VARCHAR2(2000))")
+            db.commit()
+            print("[CONFIG] Tabela 'configuracoes' criada.")
+        except Exception as e:
+            print(f"[CONFIG] Erro ao criar tabela: {e}")
+    
+    # Defaults
+    defaults = {
+        'paroquia_nome': 'Imaculado Coração de Maria',
+        'paroquia_logo': 'Logo.jpg'
+    }
+    for k, v in defaults.items():
+        existe = db.execute("SELECT 1 FROM configuracoes WHERE chave = ?", (k,)).fetchone()
+        if not existe:
+            db.execute("INSERT INTO configuracoes (chave, valor) VALUES (?, ?)", (k, v))
+            db.commit()
+
+# Chame init_configuracoes() no local adequado ou garante que o banco esteja pronto.
+@app.before_request
+def check_configs():
+    if not hasattr(app, '_configs_initialized'):
+        try:
+            init_configuracoes()
+            app._configs_initialized = True
+        except: pass
 
 @app.teardown_appcontext
 def close_connection(exception):
@@ -623,6 +689,79 @@ def delete_missa(id):
     db.commit()
     return jsonify({'message': 'Missa excluída'})
 
+@app.route('/api/missas/<int:id>/resumo-financeiro', methods=['GET'])
+def resumo_financeiro_missa(id):
+    db = get_db()
+    
+    # Busca a missa
+    m = db.execute("SELECT id_missa, data_missa, hora, comunidade FROM missas WHERE id_missa = ?", (id,)).fetchone()
+    if not m:
+        return jsonify({'error': 'Missa não encontrada'}), 404
+        
+    missa_data = dict(m)
+    
+    # Busca e agrupa os lançamentos da missa
+    query = """
+        SELECT 
+            COALESCE(tl.descricao, 'Oferta') as tipo_lancamento,
+            COALESCE(tp.descricao, 'Outros') as tipo_pagamento,
+            SUM(r.valor) as total
+        FROM recebimentos r
+        JOIN tipos_pagamento tp ON r.id_tipo_pagamento = tp.id_tipo_pagamento
+        LEFT JOIN tipos_lancamentos tl ON r.id_tipo_lancamento = tl.id_tipo_lancamento
+        WHERE r.id_missa = ? AND r.status = 1
+        GROUP BY tl.descricao, tp.descricao
+    """
+    agrupamentos = db.execute(query, (id,)).fetchall()
+    
+    # Estrutura a resposta de acordo com a regra: Dinheiro vs. Outros(Cartão)
+    totais = {
+        'coleta_dinheiro': 0.0,
+        'coleta_cartao': 0.0,
+        'dizimo_dinheiro': 0.0,
+        'dizimo_cartao': 0.0
+    }
+    
+    for row in agrupamentos:
+        tl = row['tipo_lancamento'].strip().lower() # ex: 'dízimo' ou 'oferta'
+        tp = row['tipo_pagamento'].strip().lower()   # ex: 'dinheiro', 'pix', 'cartão'
+        v = float(row['total'] or 0)
+        
+        # Trata acentuação (Dízimo -> dizimo, Cartão -> cartao)
+        import unicodedata
+        tl_norm = ''.join(c for c in unicodedata.normalize('NFD', tl) if unicodedata.category(c) != 'Mn')
+        
+        if 'despesa' in tl_norm:
+            continue
+            
+        is_dizimo = 'dizimo' in tl_norm
+        is_dinheiro = 'dinheiro' in tp
+        
+        if is_dizimo:
+            if is_dinheiro:
+                totais['dizimo_dinheiro'] += v
+            else:
+                totais['dizimo_cartao'] += v
+        else: # Se não é dízimo, assumimos Oferta (Coleta)
+            if is_dinheiro:
+                totais['coleta_dinheiro'] += v
+            else:
+                totais['coleta_cartao'] += v
+
+    missa_data['totais'] = totais
+    
+    # Detalhes das despesas
+    despesas_query = """
+        SELECT r.valor, r.observacao
+        FROM recebimentos r
+        JOIN tipos_lancamentos tl ON r.id_tipo_lancamento = tl.id_tipo_lancamento
+        WHERE r.id_missa = ? AND r.status = 1 AND LOWER(tl.descricao) LIKE '%despesa%'
+    """
+    despesas_rows = db.execute(despesas_query, (id,)).fetchall()
+    missa_data['despesas'] = [{'valor': float(r['valor']), 'observacao': r['observacao'] or ''} for r in despesas_rows]
+    
+    return jsonify(missa_data)
+
 @app.route('/api/missas/hoje', methods=['GET'])
 def get_missas_hoje():
     db = get_db()
@@ -864,6 +1003,8 @@ def get_recebimentos():
     mes = request.args.get('mes')
     ano = request.args.get('ano')
     id_dizimista = request.args.get('id_dizimista')
+    id_missa = request.args.get('id_missa')
+    data_hoje = request.args.get('data_hoje')
     page = int(request.args.get('page', 1))
     per_page = int(request.args.get('per_page', 10))
     offset = (page - 1) * per_page
@@ -871,15 +1012,35 @@ def get_recebimentos():
     where_clauses = ["r.status = 1"]
     params = []
 
-    if mes:
-        where_clauses.append("r.competencia LIKE ?")
-        params.append(f"{mes.zfill(2)}/%")
-    if ano:
-        where_clauses.append("r.competencia LIKE ?")
-        params.append(f"%/{ano}")
+    if mes and ano:
+        data_base = f"{ano}-{mes.zfill(2)}-01"
+        where_clauses.append("r.data_recebimento >= TO_DATE(?, 'YYYY-MM-DD')")
+        params.append(data_base)
+        where_clauses.append("r.data_recebimento < ADD_MONTHS(TO_DATE(?, 'YYYY-MM-DD'), 1)")
+        params.append(data_base)
+    elif ano:
+        data_base = f"{ano}-01-01"
+        where_clauses.append("r.data_recebimento >= TO_DATE(?, 'YYYY-MM-DD')")
+        params.append(data_base)
+        where_clauses.append("r.data_recebimento < ADD_MONTHS(TO_DATE(?, 'YYYY-MM-DD'), 12)")
+        params.append(data_base)
+    elif mes:
+        where_clauses.append("TO_CHAR(r.data_recebimento, 'MM') = ?")
+        params.append(mes.zfill(2))
+    elif data_hoje:
+        hoje = datetime.now().strftime('%Y-%m-%d')
+        where_clauses.append("r.data_recebimento >= TO_DATE(?, 'YYYY-MM-DD')")
+        params.append(hoje)
+        where_clauses.append("r.data_recebimento < TO_DATE(?, 'YYYY-MM-DD') + 1")
+        params.append(hoje)
+
     if id_dizimista:
         where_clauses.append("r.id_dizimista = ?")
         params.append(id_dizimista)
+    
+    if id_missa:
+        where_clauses.append("r.id_missa = ?")
+        params.append(id_missa)
 
     where_str = " AND ".join(where_clauses)
 
