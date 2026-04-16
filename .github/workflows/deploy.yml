@@ -33,24 +33,25 @@ jobs:
             echo "Iniciando processo de deploy..."
             
             # Criar as pastas de destino, caso não existam
-            sudo mkdir -p /var/www/html
-            mkdir -p /home/opc/dizimo_app
+            sudo mkdir -p /usr/share/nginx/html
+            sudo mkdir -p /opt/dizimo
+            sudo chown opc:opc /opt/dizimo
             
             # 1️⃣ Mover apenas a pasta frontend para o servidor Nginx (Público)
-            # Dessa forma, todos HTML/CSS ficam lá.
-            sudo cp -r /home/opc/deploy_tmp/frontend/* /var/www/html/
+            sudo cp -r /home/opc/deploy_tmp/frontend/* /usr/share/nginx/html/
             
-            # 2️⃣ Mover o backend e o resto para o diretório seguro do aplicativo
-            # Isso inclui as chaves OCI e o Python
-            rsync -av --exclude='frontend' /home/opc/deploy_tmp/ /home/opc/dizimo_app/
+            # 2️⃣ Mover o backend e o resto para o diretório seguro /opt/dizimo
+            # Usando sudo para garantir permissão nos diretórios do sistema
+            sudo rsync -av --exclude='frontend' /home/opc/deploy_tmp/ /opt/dizimo/
+            sudo chown -R opc:opc /opt/dizimo
             
             # Limpar diretório temporário
             rm -rf /home/opc/deploy_tmp
             
             # Tentar reiniciar Nginx
-            sudo systemctl restart nginx || echo "Nginx não estava rodando."
+            sudo systemctl restart nginx || echo "Falha ao reiniciar Nginx."
             
-            # Reiniciar o serviço Python do Backend (Comentado até criarmos o serviço no futuro)
-            # sudo systemctl restart dizimo_backend
+            # 3️⃣ Reiniciar o serviço Python do Backend
+            sudo systemctl restart dizimo || echo "Falha ao reiniciar o serviço dizimo."
             
             echo "Deploy finalizado com segurança!"
