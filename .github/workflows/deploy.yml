@@ -30,18 +30,27 @@ jobs:
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_KEY }}
           script: |
-            echo "Deploy started..."
-            # Mover arquivos temporários para o destino final (/var/www/html)
+            echo "Iniciando processo de deploy..."
+            
+            # Criar as pastas de destino, caso não existam
             sudo mkdir -p /var/www/html
+            mkdir -p /home/opc/dizimo_app
             
-            # ATENÇÃO: Copiaremos tudo para o diretório final. Se quiser separar o frontend da raiz, avise depois!
-            sudo cp -r /home/opc/deploy_tmp/* /var/www/html/
+            # 1️⃣ Mover apenas a pasta frontend para o servidor Nginx (Público)
+            # Dessa forma, todos HTML/CSS ficam lá.
+            sudo cp -r /home/opc/deploy_tmp/frontend/* /var/www/html/
             
-            # Limpar tmp
+            # 2️⃣ Mover o backend e o resto para o diretório seguro do aplicativo
+            # Isso inclui as chaves OCI e o Python
+            rsync -av --exclude='frontend' /home/opc/deploy_tmp/ /home/opc/dizimo_app/
+            
+            # Limpar diretório temporário
             rm -rf /home/opc/deploy_tmp
             
-            # Tentar reiniciar Nginx pra garantir se houver mudança de configuração
-            sudo systemctl restart nginx || echo "Nginx restart failed ou não instalado."
+            # Tentar reiniciar Nginx
+            sudo systemctl restart nginx || echo "Nginx não estava rodando."
             
-            # Dica: Adicionaremos aqui o reinício do backend (Flask) se houver um serviço para ele.
-            echo "Deploy concluído!"
+            # Reiniciar o serviço Python do Backend (Comentado até criarmos o serviço no futuro)
+            # sudo systemctl restart dizimo_backend
+            
+            echo "Deploy finalizado com segurança!"
