@@ -24,9 +24,9 @@
         <div class="login-page">
             <div class="login-card glass-panel">
                 <div class="login-header">
-                    <img src="Logo.jpg" alt="Logo"
+                    <img src="Logo.jpg" alt="Logo" class="paroquia-logo"
                         style="width: 80px; height: auto; border-radius: 50%; margin-bottom: 1rem; border: 3px solid var(--primary-light);">
-                    <h2>Controle de Dízimos</h2>
+                    <h2 class="paroquia-nome">Controle de Dízimos</h2>
                     <p>Acesse com suas credenciais</p>
                 </div>
                 <form id="form-login">
@@ -56,9 +56,9 @@
         <div class="layout">
             <aside class="sidebar">
                 <div class="sidebar-brand">
-                    <img src="Logo.jpg" alt="Logo"
+                    <img src="Logo.jpg" alt="Logo" class="paroquia-logo"
                         style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(255,255,255,0.3);">
-                    <span>Imaculado Coração de Maria</span>
+                    <span class="paroquia-nome">Imaculado Coração de Maria</span>
                 </div>
                 <nav class="sidebar-nav">
                     <button class="nav-item active" data-target="dashboard">
@@ -90,7 +90,7 @@
                     </button>
                 </nav>
                 <div class="sidebar-footer">
-                    Versão <span id="app-version">2.01</span>
+                    Versão <span id="app-version">2.10</span>
                 </div>
             </aside>
             <main class="main-content">
@@ -106,6 +106,9 @@
                         <div class="profile-dropdown" id="profile-dropdown">
                             <button class="dropdown-item" id="btn-open-change-pass"><i class="ph ph-key"></i> Trocar
                                 Senha</button>
+                            <button class="dropdown-item" id="nav-configs" style="display: none;" onclick="app.navTo('configuracoes')">
+                                <i class="ph ph-gear"></i> Configurações
+                            </button>
                             <div class="dropdown-divider"></div>
                             <button class="dropdown-item" data-target="logout"><i class="ph ph-sign-out"></i>
                                 Sair</button>
@@ -153,17 +156,35 @@
                             class="ph ph-user-plus"></i> Novo Dizimista</button>
                     <button class="btn btn-primary" onclick="app.navTo('lancar-recebimento')"><i
                             class="ph ph-plus-circle"></i> Lançar Pagamento</button>
+                    <button class="btn btn-secondary" style="background:var(--primary-light); color:var(--primary-color); display:flex; align-items:center; gap:0.5rem; font-weight:600;" onclick="app.abrirModalCalculaOfertas()">
+                        <i class="ph ph-calculator"></i> Calcula Ofertas
+                    </button>
                 </div>
             </div>
 
             <div class="recent-list mt-6 glass-panel">
-                <h3>Últimos Recebimentos</h3>
+                <div class="view-header mb-4"
+                    style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap;">
+                    <h3><i class="ph ph-list-numbers"></i> Lançamentos do Dia</h3>
+                    <div style="flex: 0 0 350px; min-width: 250px; display: flex; gap: 0.5rem; align-items: flex-end;">
+                        <div class="input-group" style="flex: 1; margin-bottom: 0;">
+                            <select id="filtro-missa-dashboard">
+                                <option value="">Todas as Missas de Hoje</option>
+                            </select>
+                        </div>
+                        <button id="btn-imprimir-resumo" class="btn btn-primary" style="display: none; padding: 0.5rem 1rem;" title="Imprimir Resumo da Missa">
+                            <i class="ph ph-printer"></i>
+                        </button>
+                    </div>
+                </div>
                 <div class="table-responsive">
                     <table class="table">
                         <thead>
                             <tr>
-                                <th>Data</th>
+                                <th>Hora</th>
                                 <th>Dizimista</th>
+                                <th>Tipo de Lançamento</th>
+                                <th>Forma</th>
                                 <th>Competência</th>
                                 <th>Valor</th>
                             </tr>
@@ -880,7 +901,136 @@
         </div>
     </template>
 
+    <!-- Cartão de Resumo Financeiro da Missa (Só aparece na impressão) -->
+    <div id="print-resumo-card" class="print-only" style="display: none;">
+        <div class="print-card-wrapper">
+            <table class="print-table">
+                <tr>
+                    <th colspan="2" class="print-header-cell" style="padding: 0;">
+                        <div class="print-paroquia" id="print-paroquia-nome">Paróquia Nossa Senhora da Guia</div>
+                        <div class="print-missa" id="print-missa-nome">Imaculado Coração de Maria</div>
+                    </th>
+                </tr>
+                <tr>
+                    <th>Missa do dia</th>
+                    <th>Horário</th>
+                </tr>
+                <tr>
+                    <td id="print-data" class="print-value-large"></td>
+                    <td id="print-hora" class="print-value-large"></td>
+                </tr>
+                <tr>
+                    <th>Coleta Dinheiro</th>
+                    <th>Coleta Cartão</th>
+                </tr>
+                <tr>
+                    <td id="print-coleta-din" class="print-value-money"></td>
+                    <td id="print-coleta-car" class="print-value-money"></td>
+                </tr>
+                <tr>
+                    <th>Dizimo Dinheiro</th>
+                    <th>Dizimo Cartão</th>
+                </tr>
+                <tr>
+                    <td id="print-dizimo-din" class="print-value-money"></td>
+                    <td id="print-dizimo-car" class="print-value-money"></td>
+                </tr>
+                <tbody id="print-despesas-body">
+                    <tr class="print-footer-row">
+                        <th colspan="2" style="text-align: left;">Despesas R$ <span class="print-underline"></span></th>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Modal Calcula Ofertas -->
+    <div id="modal-calcula-ofertas" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 650px;">
+            <div class="modal-header no-print">
+                <h3><i class="ph ph-calculator"></i> Calcula Ofertas</h3>
+                <button type="button" class="btn-icon" onclick="document.getElementById('modal-calcula-ofertas').style.display='none'"><i class="ph ph-x"></i></button>
+            </div>
+            <div class="modal-body" id="print-ofertas-area">
+                <style>
+                    .table-ofertas th, .table-ofertas td { text-align: right; padding: 0.25rem 0.5rem; border-bottom: 1px solid var(--border-color); font-size: 0.95rem; }
+                    .table-ofertas th:first-child, .table-ofertas td:first-child { text-align: left; }
+                    .table-ofertas th:nth-child(2), .table-ofertas td:nth-child(2) { text-align: center; }
+                    .input-qtde { width: 50px; text-align: center; border: 1px solid var(--border-color); border-radius: 4px; padding: 0.2rem; font-family: inherit; font-size: 0.95rem;}
+                </style>
+                <div style="text-align: center; margin-bottom: 2rem; display: none;" class="print-only">
+                    <h2 style="margin: 0; font-size: 1.4rem;" id="print-ofertas-paroquia">Paróquia</h2>
+                    <h3 style="margin: 0; font-size: 1.1rem; color: #555;">Resumo de Ofertas</h3>
+                </div>
+                
+                <div class="ofertas-flex-container" style="display: flex; flex-wrap: wrap; gap: 1.5rem; justify-content: space-between;">
+                    <div style="flex: 1; min-width: 240px;">
+                        <h4 style="text-align:center; padding: 0.25rem; margin-bottom: 0.5rem; font-weight:600; color:var(--text-muted); background: var(--bg-main); border-radius: 4px;"><i class="ph ph-coins"></i> Moedas</h4>
+                        <table class="table-ofertas" style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr>
+                                    <th>Valor</th>
+                                    <th style="text-align: center;">Qtde</th>
+                                    <th>Total</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tb-calcula-moedas">
+                                <!-- JS vai criar -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div style="flex: 1; min-width: 240px;">
+                        <h4 style="text-align:center; padding: 0.25rem; margin-bottom: 0.5rem; font-weight:600; color:var(--text-muted); background: var(--bg-main); border-radius: 4px;"><i class="ph ph-money"></i> Cédulas</h4>
+                        <table class="table-ofertas" style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr>
+                                    <th>Valor</th>
+                                    <th style="text-align: center;">Qtde</th>
+                                    <th>Total</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tb-calcula-notas">
+                                <!-- JS vai criar -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div style="text-align: right; margin-top: 1rem; border-top: 2px solid var(--border-color); padding-top: 1rem;">
+                    <span style="font-weight: bold; font-size: 1.1rem; margin-right: 1rem;">Total Geral:</span>
+                    <span id="total-geral-ofertas" style="font-weight: bold; font-size: 1.3rem; color: var(--primary-color);">R$ 0,00</span>
+                </div>
+            </div>
+            <div class="modal-footer no-print" style="margin-top: 1.5rem; display: flex; justify-content: flex-end; gap: 1rem; padding: 0 1.5rem 1.5rem 1.5rem;">
+                <button type="button" class="btn btn-secondary" onclick="document.getElementById('modal-calcula-ofertas').style.display='none'">Fechar</button>
+                <button type="button" class="btn btn-primary" onclick="app.imprimirCalculaOfertas()"><i class="ph ph-printer"></i> Imprimir</button>
+            </div>
+        </div>
+    </div>
+
     <script src="app.js"></script>
+    <!-- View: Configurações -->
+    <template id="view-configuracoes">
+        <div class="view-header">
+            <h2><i class="ph ph-gear"></i> Configurações do Sistema</h2>
+        </div>
+        <div class="glass-panel mt-4" style="max-width: 600px;">
+            <form id="form-configuracoes" class="form-layout">
+                <div class="input-group">
+                    <label>Nome da Paróquia</label>
+                    <input type="text" id="cfg-paroquia-nome" placeholder="Ex: Paróquia Santo Antônio">
+                    <small style="color:var(--text-muted)">Este nome aparecerá no topo do sistema e relatórios.</small>
+                </div>
+                <div class="input-group">
+                    <label>Logotipo (Nome do Arquivo ou URL)</label>
+                    <input type="text" id="cfg-paroquia-logo" placeholder="Ex: Logo.jpg ou https://...">
+                    <small style="color:var(--text-muted)">O arquivo deve estar na pasta /frontend ou ser um link acessível.</small>
+                </div>
+                <div class="form-actions mt-4">
+                    <button type="submit" class="btn btn-primary"><i class="ph ph-floppy-disk"></i> Salvar Alterações</button>
+                </div>
+            </form>
+        </div>
+    </template>
 </body>
 
 </html>

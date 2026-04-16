@@ -33,8 +33,11 @@ const app = {
         this.showToast(msg, 'error');
     },
 
-    init() {
+    async init() {
         this.container = document.getElementById('app-container');
+
+        // Carregar configurações do sistema (Nome/Logo)
+        await this.loadConfigs();
 
         // Restore session
         const savedUser = localStorage.getItem('dizimo_user');
@@ -45,6 +48,33 @@ const app = {
         } else {
             this.renderLogin();
         }
+    },
+
+    async loadConfigs() {
+        try {
+            const res = await fetch(`${API_URL}/configuracoes`);
+            if (res.ok) {
+                this.state.configs = await res.json();
+                this.applyConfigs();
+            }
+        } catch (e) {
+            console.error("Erro ao carregar configurações", e);
+        }
+    },
+
+    applyConfigs() {
+        const configs = this.state.configs || { paroquia_nome: 'Imaculado Coração de Maria', paroquia_logo: 'Logo.jpg' };
+        
+        // Atualiza todos os nomes nas classes
+        document.querySelectorAll('.paroquia-nome').forEach(el => {
+            if (el.tagName === 'INPUT') el.value = configs.paroquia_nome;
+            else el.textContent = configs.paroquia_nome;
+        });
+
+        // Atualiza todos os logos nas classes
+        document.querySelectorAll('.paroquia-logo').forEach(el => {
+            el.src = configs.paroquia_logo;
+        });
     },
 
     // UI Renders
@@ -111,11 +141,19 @@ const app = {
         };
         overlay.addEventListener('click', closeSidebar);
 
-        // Hide/show restricted menus
+        // Hide/show restricted menus (Perfil 1 = Admin)
+        if (this.state.user && (this.state.user.id_perfil == 1 || String(this.state.user.id_perfil) === '1')) {
+            const btnConfigs = document.getElementById('nav-configs');
+            if (btnConfigs) btnConfigs.style.display = 'flex';
+        }
+
         if (this.state.user.permissoes) {
             if (this.state.user.permissoes.includes('Visualizar Usuários')) document.getElementById('nav-usuarios').style.display = 'flex';
             if (this.state.user.permissoes.includes('Gerenciar Perfis')) document.getElementById('nav-perfis').style.display = 'flex';
         }
+
+        // Reaplicar configs pois o tpl-main acabou de ser injetado
+        this.applyConfigs();
 
         // Setup nav links
         document.querySelectorAll('.nav-item').forEach(btn => {
@@ -242,7 +280,8 @@ const app = {
             'pastoral-form': 'Cadastro de Pastoral',
             'relatorios': 'Central de Relatórios',
             'relatorio-servos-filtro': 'Escala de Servos - Filtros',
-            'relatorio-servos-preview': 'Visualização do Relatório'
+            'relatorio-servos-preview': 'Visualização do Relatório',
+            'configuracoes': 'Configurações de Sistema'
         };
         const titleEl = document.getElementById('page-title');
         if (titleEl && titles[viewId]) titleEl.textContent = titles[viewId];
@@ -267,11 +306,12 @@ const app = {
         if (viewId === 'pastorais') this.loadPastoraisList();
         if (viewId === 'pastoral-form') this.setupPastoralForm();
         if (viewId === 'relatorio-servos-filtro') this.setupRelatorioServosFiltro();
+        if (viewId === 'configuracoes') this.setupConfiguracoes();
     },
 
     // --- View Implementations ---
 
-    async loadDashboard() {
+    async loadDashboard(idMissa = '') {
         try {
             const res = await app.authFetch(`${API_URL}/dashboard`);
             if (res.ok) {
@@ -281,26 +321,158 @@ const app = {
                 document.getElementById('stat-ativos').textContent = data.dizimistas_ativos;
             }
 
-            // Load recent list
-            const recRes = await app.authFetch(`${API_URL}/recebimentos?per_page=5`);
+            // Popular Missas de Hoje no Filtro do Dashboard
+            const mRes = await app.authFetch(`${API_URL}/missas/hoje`);
+            const mSelect = document.getElementById('filtro-missa-dashboard');
+            if (mRes.ok && mSelect && mSelect.options.length <= 1) {
+                const list = await mRes.json();
+                list.forEach(m => {
+                    const opt = document.createElement('option');
+                    opt.value = m.id_missa;
+                    opt.textContent = `${m.hora} - ${m.comunidade || ''}`;
+                    mSelect.appendChild(opt);
+                });
+                
+                if (!mSelect.dataset.listenerAttached) {
+                    mSelect.addEventListener('change', (e) => {
+                        this.loadDashboard(e.target.value);
+                    });
+                    mSelect.dataset.listenerAttached = 'true';
+                }
+            }
+
+            // Controle do Botão de Imprimir Resumo
+            const btnPrint = document.getElementById('btn-imprimir-resumo');
+            if (btnPrint) {
+                if (idMissa) {
+                    btnPrint.style.display = 'inline-flex';
+                    btnPrint.onclick = () => this.imprimirResumoMissa(idMissa);
+                } else {
+                    btnPrint.style.display = 'none';
+                }
+            }
+
+            // Load today's payments
+            let url = `${API_URL}/recebimentos?data_hoje=1&per_page=50`;
+            if (idMissa) url += `&id_missa=${idMissa}`;
+
+            const recRes = await app.authFetch(url);
             if (recRes.ok) {
                 const response = await recRes.json();
                 const recs = response.data || [];
                 const tbody = document.getElementById('tb-recent');
-                tbody.innerHTML = '';
-                recs.forEach(r => {
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td>${new Date(r.data_recebimento).toLocaleDateString('pt-BR')}</td>
-                        <td><strong>${r.dizimista_nome}</strong></td>
-                        <td>${r.competencia}</td>
-                        <td style="color:var(--success-color); font-weight:bold;">R$ ${r.valor.toFixed(2)}</td>
-                    `;
-                    tbody.appendChild(tr);
-                });
+                if (tbody) {
+                    tbody.innerHTML = '';
+                    if (recs.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding: 1rem;">Nenhum lançamento encontrado para hoje</td></tr>';
+                    }
+                    recs.forEach(r => {
+                        const tr = document.createElement('tr');
+                        // Hora formatada: 14:30
+                        const horaFmt = r.data_recebimento ? new Date(r.data_recebimento).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '-';
+                        const isDespesa = r.tipo_lancamento_nome && r.tipo_lancamento_nome.toLowerCase().includes('despesa');
+                        
+                        tr.innerHTML = `
+                            <td>${horaFmt}</td>
+                            <td><strong>${r.dizimista_nome}</strong></td>
+                            <td>${r.tipo_lancamento_nome || '-'}</td>
+                            <td><span class="badge" style="background:var(--bg-main); color:var(--primary-dark);">${r.tipo_pagamento_nome || '-'}</span></td>
+                            <td>${r.competencia}</td>
+                            <td style="color:${isDespesa ? 'var(--error-color)' : 'var(--success-color)'}; font-weight:bold;">R$ ${r.valor.toFixed(2)}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                }
             }
         } catch (e) {
             console.error("Dashboard error", e);
+        }
+    },
+
+    async imprimirResumoMissa(idMissa) {
+        try {
+            this.showToast('Gerando resumo da missa...');
+            const res = await this.authFetch(`${API_URL}/missas/${idMissa}/resumo-financeiro`);
+            if (res.ok) {
+                const data = await res.json();
+                
+                // Formatação local
+                const formatValue = (num) => 'R$ ' + (num || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+                
+                document.getElementById('print-paroquia-nome').textContent = this.state.configs?.paroquia_nome || 'Paróquia';
+                document.getElementById('print-missa-nome').textContent = data.comunidade || 'Comunidade';
+                
+                // Converter de YYYY-MM-DD para DD/MM/YYYY
+                const parts = (data.data_missa || '').split('-');
+                const dateFmt = parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : data.data_missa;
+                
+                document.getElementById('print-data').textContent = dateFmt || '-';
+                document.getElementById('print-hora').textContent = data.hora ? `${data.hora.split(':')[0]} h` : '-';
+                
+                document.getElementById('print-coleta-din').textContent = formatValue(data.totais.coleta_dinheiro);
+                document.getElementById('print-coleta-car').innerHTML = data.totais.coleta_cartao === 0 ? '&mdash;' : formatValue(data.totais.coleta_cartao);
+                document.getElementById('print-dizimo-din').innerHTML = data.totais.dizimo_dinheiro === 0 ? '&mdash;' : formatValue(data.totais.dizimo_dinheiro);
+                document.getElementById('print-dizimo-car').innerHTML = data.totais.dizimo_cartao === 0 ? '&mdash;' : formatValue(data.totais.dizimo_cartao);
+
+                // Popular Despesas dinâmicas
+                const tbodyDespesas = document.getElementById('print-despesas-body');
+                if (tbodyDespesas) {
+                    tbodyDespesas.innerHTML = '';
+                    const despesas = data.despesas || [];
+                    if (despesas.length === 0) {
+                        tbodyDespesas.innerHTML = `
+                            <tr class="print-footer-row">
+                                <th colspan="2" style="text-align: left;">Despesas R$ <span class="print-underline"></span></th>
+                            </tr>
+                        `;
+                    } else {
+                        // Linha de Header para Despesas
+                        tbodyDespesas.innerHTML = `
+                            <tr>
+                                <th colspan="2" style="text-align: center; border-bottom: none; font-weight: bold; background: #f0f0f0;">Despesas da Missa</th>
+                            </tr>
+                        `;
+                        // Iterar as despesas
+                        despesas.forEach(d => {
+                            const tr = document.createElement('tr');
+                            tr.innerHTML = `
+                                <td style="text-align: justify; word-break: break-word; white-space: normal;">${d.observacao || 'Despesa'}</td>
+                                <td class="print-value-money" style="text-align: right !important; color: #8b0000; vertical-align: top;">${formatValue(d.valor)}</td>
+                            `;
+                            tbodyDespesas.appendChild(tr);
+                        });
+                        
+                        // Total de Despesas no final
+                        const totalDespesas = despesas.reduce((sum, d) => sum + d.valor, 0);
+                        const totalTr = document.createElement('tr');
+                        totalTr.innerHTML = `
+                            <th style="text-align: right;">Total Despesas:</th>
+                            <th class="print-value-money" style="text-align: left !important; color: #8b0000; font-weight: bold;">${formatValue(totalDespesas)}</th>
+                        `;
+                        tbodyDespesas.appendChild(totalTr);
+                    }
+                }
+                
+                setTimeout(() => {
+                    document.body.classList.add('print-resumo-missa');
+                    // Injetar estilo dinâmico para tamanho A6
+                    const style = document.createElement('style');
+                    style.id = 'print-page-style';
+                    style.innerHTML = '@page { size: 105mm 148mm; margin: 5mm; }';
+                    document.head.appendChild(style);
+
+                    window.print();
+
+                    document.body.classList.remove('print-resumo-missa');
+                    const dynamicStyle = document.getElementById('print-page-style');
+                    if(dynamicStyle) dynamicStyle.remove();
+                }, 300); // small delay to render
+            } else {
+                this.handleResponseError(res, 'Erro ao carregar resumo');
+            }
+        } catch (e) {
+            console.error(e);
+            this.showToast('Erro de conexão', 'error');
         }
     },
 
@@ -2284,6 +2456,119 @@ const app = {
         }
     },
 
+    setupConfiguracoes() {
+        const form = document.getElementById('form-configuracoes');
+        if (!form) return;
+
+        // Pre-fill
+        const configs = this.state.configs || {};
+        document.getElementById('cfg-paroquia-nome').value = configs.paroquia_nome || '';
+        document.getElementById('cfg-paroquia-logo').value = configs.paroquia_logo || '';
+
+        const newForm = form.cloneNode(true);
+        form.parentNode.replaceChild(newForm, form);
+
+        newForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const nome = document.getElementById('cfg-paroquia-nome').value;
+            const logo = document.getElementById('cfg-paroquia-logo').value;
+
+            const btn = newForm.querySelector('button[type="submit"]');
+            const originalHtml = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="ph ph-circle-notch ph-spin"></i> Salvando...';
+
+            try {
+                const res = await app.authFetch(`${API_URL}/configuracoes`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        paroquia_nome: nome,
+                        paroquia_logo: logo
+                    })
+                });
+
+                if (res.ok) {
+                    this.showToast('Configurações salvas!');
+                    await this.loadConfigs();
+                } else {
+                    const errorData = await res.json();
+                    this.showToast(`Erro: ${errorData.error || 'Falha ao salvar'}`, 'error');
+                }
+            } catch (err) {
+                this.showToast('Erro de conexão', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+            }
+        });
+    },
+
+    abrirModalCalculaOfertas() {
+        document.getElementById('modal-calcula-ofertas').style.display = 'flex';
+        
+        const tbodyMoedas = document.getElementById('tb-calcula-moedas');
+        const tbodyNotas = document.getElementById('tb-calcula-notas');
+        tbodyMoedas.innerHTML = '';
+        tbodyNotas.innerHTML = '';
+        
+        const moedas = [0.01, 0.05, 0.10, 0.25, 0.50, 1.00];
+        const notas = [2.00, 5.00, 10.00, 20.00, 50.00, 100.00, 200.00];
+
+        const adicionarLinha = (valor, icone, tbody) => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><i class="ph ${icone}" style="color:var(--primary-color); padding-right: 0.2rem;"></i> R$ ${valor.toFixed(2).replace('.', ',')}</td>
+                <td style="text-align:center;"><input type="number" min="0" class="input-qtde" data-valor="${valor}" oninput="app.recalcularTotalOfertas()"></td>
+                <td class="linha-total">R$ 0,00</td>
+            `;
+            tbody.appendChild(tr);
+        };
+
+        moedas.forEach(v => adicionarLinha(v, 'ph-coin', tbodyMoedas));
+        notas.forEach(v => adicionarLinha(v, 'ph-money', tbodyNotas));
+
+        this.recalcularTotalOfertas();
+        
+        const configs = this.state.configs || {};
+        const printHeader = document.getElementById('print-ofertas-paroquia');
+        if(printHeader) {
+            printHeader.textContent = configs.paroquia_nome || 'Paróquia';
+        }
+    },
+
+    recalcularTotalOfertas() {
+        const inputs = document.querySelectorAll('#print-ofertas-area .input-qtde');
+        let totalGeral = 0;
+
+        inputs.forEach(input => {
+            const valor = parseFloat(input.getAttribute('data-valor'));
+            const qtde = parseInt(input.value) || 0;
+            const totalLinha = valor * qtde;
+            totalGeral += totalLinha;
+
+            const tr = input.closest('tr');
+            tr.querySelector('.linha-total').textContent = `R$ ${totalLinha.toFixed(2).replace('.', ',')}`;
+        });
+
+        document.getElementById('total-geral-ofertas').textContent = `R$ ${totalGeral.toFixed(2).replace('.', ',')}`;
+    },
+
+    imprimirCalculaOfertas() {
+        document.body.classList.add('print-calcula-ofertas');
+        
+        // Garantir tamanho A4 para ofertas
+        const style = document.createElement('style');
+        style.id = 'print-page-style';
+        style.innerHTML = '@page { size: A4; margin: 15mm; }';
+        document.head.appendChild(style);
+
+        window.print();
+
+        document.body.classList.remove('print-calcula-ofertas');
+        const dynamicStyle = document.getElementById('print-page-style');
+        if(dynamicStyle) dynamicStyle.remove();
+    }
 };
 
 document.addEventListener('DOMContentLoaded', () => {
