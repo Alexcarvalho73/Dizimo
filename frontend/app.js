@@ -2659,6 +2659,19 @@ const app = {
         document.body.classList.remove('print-calcula-ofertas');
         const dynamicStyle = document.getElementById('print-page-style');
         if(dynamicStyle) dynamicStyle.remove();
+    },
+
+    abrirChatbot() {
+        // Pega o protocolo (http/https) e o IP/Domínio atual
+        const protocol = window.location.protocol;
+        const hostname = window.location.hostname;
+        const token = 'Alinne05@token';
+        
+        // Monta a URL para a porta 3000 com o token de segurança
+        const url = `${protocol}//${hostname}:3000/?token=${token}`;
+        
+        // Abre em uma nova aba
+        window.open(url, '_blank');
     }
 };
 
