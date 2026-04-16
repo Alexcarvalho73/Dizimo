@@ -90,7 +90,7 @@
                     </button>
                 </nav>
                 <div class="sidebar-footer">
-                    Versão <span id="app-version">2.10</span>
+                    Versão <span id="app-version">2.11</span>
                 </div>
             </aside>
             <main class="main-content">
@@ -995,13 +995,22 @@
                         </table>
                     </div>
                 </div>
-                <div style="text-align: right; margin-top: 1rem; border-top: 2px solid var(--border-color); padding-top: 1rem;">
-                    <span style="font-weight: bold; font-size: 1.1rem; margin-right: 1rem;">Total Geral:</span>
-                    <span id="total-geral-ofertas" style="font-weight: bold; font-size: 1.3rem; color: var(--primary-color);">R$ 0,00</span>
+                <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 1.5rem; border-top: 2px solid var(--border-color); padding-top: 1rem;">
+                    <div class="input-group no-print" style="margin-bottom: 0;">
+                        <label>Vincular à Missa:</label>
+                        <select id="oferta-missa-select" style="width: 100%; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color);">
+                            <option value="">Selecione a Missa...</option>
+                        </select>
+                    </div>
+                    <div style="text-align: right; display: flex; justify-content: flex-end; align-items: center; gap: 1rem;">
+                        <span style="font-weight: bold; font-size: 1.1rem;">Total Geral:</span>
+                        <span id="total-geral-ofertas" style="font-weight: bold; font-size: 1.3rem; color: var(--primary-color);">R$ 0,00</span>
+                    </div>
                 </div>
             </div>
             <div class="modal-footer no-print" style="margin-top: 1.5rem; display: flex; justify-content: flex-end; gap: 1rem; padding: 0 1.5rem 1.5rem 1.5rem;">
                 <button type="button" class="btn btn-secondary" onclick="document.getElementById('modal-calcula-ofertas').style.display='none'">Fechar</button>
+                <button type="button" class="btn btn-primary" style="background:#059669" onclick="app.gravarOfertas()" id="btn-gravar-oferta"><i class="ph ph-floppy-disk"></i> Gravar Oferta</button>
                 <button type="button" class="btn btn-primary" onclick="app.imprimirCalculaOfertas()"><i class="ph ph-printer"></i> Imprimir</button>
             </div>
         </div>

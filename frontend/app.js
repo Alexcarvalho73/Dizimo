@@ -3,7 +3,7 @@ const API_URL = (window.location.hostname === 'localhost' || window.location.hos
     ? 'http://localhost:5000/api'
     : '/api';
 
-const APP_VERSION = '2.01';
+const APP_VERSION = '2.11';
 
 const app = {
     state: {
@@ -2504,7 +2504,7 @@ const app = {
         });
     },
 
-    abrirModalCalculaOfertas() {
+    async abrirModalCalculaOfertas() {
         document.getElementById('modal-calcula-ofertas').style.display = 'flex';
         
         const tbodyMoedas = document.getElementById('tb-calcula-moedas');
@@ -2535,6 +2535,22 @@ const app = {
         if(printHeader) {
             printHeader.textContent = configs.paroquia_nome || 'Paróquia';
         }
+
+        // Sincronizar Missas do Dashboard para o Modal
+        const selectDash = document.getElementById('filtro-missa-dashboard');
+        const selectModal = document.getElementById('oferta-missa-select');
+        if (selectDash && selectModal) {
+            // Limpar e copiar opções
+            selectModal.innerHTML = '';
+            Array.from(selectDash.options).forEach(opt => {
+                const newOpt = document.createElement('option');
+                newOpt.value = opt.value;
+                newOpt.textContent = opt.textContent;
+                selectModal.appendChild(newOpt);
+            });
+            // Definir o selecionado igual ao dashboard
+            selectModal.value = selectDash.value;
+        }
     },
 
     recalcularTotalOfertas() {
@@ -2552,6 +2568,81 @@ const app = {
         });
 
         document.getElementById('total-geral-ofertas').textContent = `R$ ${totalGeral.toFixed(2).replace('.', ',')}`;
+        // Armazenar o valor numérico para facilitar a gravação
+        this.state.ultimoTotalOfertas = totalGeral;
+    },
+
+    async gravarOfertas() {
+        if (!this.state.ultimoTotalOfertas || this.state.ultimoTotalOfertas <= 0) {
+            this.showToast('O valor total deve ser maior que zero.', 'error');
+            return;
+        }
+
+        const idMissa = document.getElementById('oferta-missa-select').value;
+        if (!idMissa) {
+            this.showToast('Por favor, selecione a missa desejada.', 'error');
+            return;
+        }
+
+        const btn = document.getElementById('btn-gravar-oferta');
+        const originalHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="ph ph-circle-notch animate-spin"></i> Gravando...';
+
+        try {
+            // 1. Buscar ID do Dizimista Especial "Imaculado Coração de Maria"
+            const resDiz = await this.authFetch(`${API_URL}/dizimistas?q=Imaculado Coração de Maria&per_page=1`);
+            const dataDiz = await resDiz.json();
+            const dizimista = (dataDiz.data || []).find(d => d.nome.includes('Imaculado'));
+            
+            if (!dizimista) {
+                throw new Error('Dizimista "Imaculado Coração de Maria" não encontrado no sistema.');
+            }
+
+            // 2. Buscar ID do Tipo de Lançamento "Oferta"
+            const resTL = await this.authFetch(`${API_URL}/tipos-lancamentos`);
+            const dataTL = await resTL.json();
+            const tipoLanc = dataTL.find(t => t.descricao.toLowerCase().includes('oferta'));
+            
+            // 3. Buscar ID do Tipo de Pagamento "Dinheiro"
+            const resTP = await this.authFetch(`${API_URL}/tipos-pagamento`);
+            const dataTP = await resTP.json();
+            const tipoPag = dataTP.find(t => t.descricao.toLowerCase().includes('dinheiro'));
+
+            // 4. Preparar dados da transação
+            const now = new Date();
+            const competencia = `${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+
+            const payload = {
+                id_dizimista: dizimista.id_dizimista,
+                valor: this.state.ultimoTotalOfertas,
+                competencia: competencia,
+                id_tipo_pagamento: tipoPag ? tipoPag.id_tipo_pagamento : 1, // Fallback p/ 1 se não achar
+                id_tipo_lancamento: tipoLanc ? tipoLanc.id_tipo_lancamento : null,
+                id_missa: idMissa,
+                id_usuario: this.state.user.id_usuario,
+                observacao: 'Lançamento automático via Calculadora de Ofertas'
+            };
+
+            const resPost = await this.authFetch(`${API_URL}/recebimentos`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (resPost.ok) {
+                this.showToast('Oferta gravada com sucesso!');
+                document.getElementById('modal-calcula-ofertas').style.display = 'none';
+                this.loadDashboard(idMissa); // Atualiza o dashboard para mostrar o novo lançamento
+            } else {
+                await this.handleResponseError(resPost, 'Erro ao gravar oferta');
+            }
+        } catch (err) {
+            this.showToast(err.message || 'Erro de conexão ao gravar oferta', 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+        }
     },
 
     imprimirCalculaOfertas() {
