@@ -64,7 +64,7 @@ const app = {
 
     applyConfigs() {
         const configs = this.state.configs || { paroquia_nome: 'Imaculado Coração de Maria', paroquia_logo: 'Logo.jpg' };
-        
+
         // Atualiza todos os nomes nas classes
         document.querySelectorAll('.paroquia-nome').forEach(el => {
             if (el.tagName === 'INPUT') el.value = configs.paroquia_nome;
@@ -332,7 +332,7 @@ const app = {
                     opt.textContent = `${m.hora} - ${m.comunidade || ''}`;
                     mSelect.appendChild(opt);
                 });
-                
+
                 if (!mSelect.dataset.listenerAttached) {
                     mSelect.addEventListener('change', (e) => {
                         this.loadDashboard(e.target.value);
@@ -371,7 +371,7 @@ const app = {
                         // Hora formatada: 14:30
                         const horaFmt = r.data_recebimento ? new Date(r.data_recebimento).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '-';
                         const isDespesa = r.tipo_lancamento_nome && r.tipo_lancamento_nome.toLowerCase().includes('despesa');
-                        
+
                         tr.innerHTML = `
                             <td>${horaFmt}</td>
                             <td><strong>${r.dizimista_nome}</strong></td>
@@ -395,20 +395,20 @@ const app = {
             const res = await this.authFetch(`${API_URL}/missas/${idMissa}/resumo-financeiro`);
             if (res.ok) {
                 const data = await res.json();
-                
+
                 // Formatação local
                 const formatValue = (num) => 'R$ ' + (num || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-                
+
                 document.getElementById('print-paroquia-nome').textContent = this.state.configs?.paroquia_nome || 'Paróquia';
                 document.getElementById('print-missa-nome').textContent = data.comunidade || 'Comunidade';
-                
+
                 // Converter de YYYY-MM-DD para DD/MM/YYYY
                 const parts = (data.data_missa || '').split('-');
                 const dateFmt = parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : data.data_missa;
-                
+
                 document.getElementById('print-data').textContent = dateFmt || '-';
                 document.getElementById('print-hora').textContent = data.hora ? `${data.hora.split(':')[0]} h` : '-';
-                
+
                 document.getElementById('print-coleta-din').textContent = formatValue(data.totais.coleta_dinheiro);
                 document.getElementById('print-coleta-car').innerHTML = data.totais.coleta_cartao === 0 ? '&mdash;' : formatValue(data.totais.coleta_cartao);
                 document.getElementById('print-dizimo-din').innerHTML = data.totais.dizimo_dinheiro === 0 ? '&mdash;' : formatValue(data.totais.dizimo_dinheiro);
@@ -441,7 +441,7 @@ const app = {
                             `;
                             tbodyDespesas.appendChild(tr);
                         });
-                        
+
                         // Total de Despesas no final
                         const totalDespesas = despesas.reduce((sum, d) => sum + d.valor, 0);
                         const totalTr = document.createElement('tr');
@@ -452,7 +452,7 @@ const app = {
                         tbodyDespesas.appendChild(totalTr);
                     }
                 }
-                
+
                 setTimeout(() => {
                     document.body.classList.add('print-resumo-missa');
                     // Injetar estilo dinâmico para tamanho A6
@@ -465,7 +465,7 @@ const app = {
 
                     document.body.classList.remove('print-resumo-missa');
                     const dynamicStyle = document.getElementById('print-page-style');
-                    if(dynamicStyle) dynamicStyle.remove();
+                    if (dynamicStyle) dynamicStyle.remove();
                 }, 300); // small delay to render
             } else {
                 this.handleResponseError(res, 'Erro ao carregar resumo');
@@ -822,7 +822,7 @@ const app = {
                     this.showToast('Buscando endereço...');
                     const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
                     const data = await response.json();
-                    
+
                     if (data.erro) {
                         this.showToast('CEP não encontrado', 'error');
                     } else {
@@ -848,7 +848,7 @@ const app = {
                 pastoralListCont.innerHTML = '<span style="color: var(--text-muted); font-style: italic;">Nenhuma pastoral cadastrada.</span>';
                 return;
             }
-            
+
             // Se for edição, buscar vínculos atuais
             let vinculadas = [];
             const dizId = document.getElementById('diz-id').value;
@@ -899,7 +899,7 @@ const app = {
                 if (res.ok) {
                     const resData = await res.json();
                     const newId = id || resData.id;
-                    
+
                     // Salvar vínculos pastorais
                     const selectedPastorais = Array.from(pastoralListCont.querySelectorAll('input[type="checkbox"]:checked')).map(cb => parseInt(cb.value));
                     await this.authFetch(`${API_URL}/dizimistas/${newId}/pastorais`, {
@@ -1436,20 +1436,20 @@ const app = {
                     tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-muted);">Nenhuma missa cadastrada</td></tr>';
                     return;
                 }
-                    missas.forEach(m => {
-                        const dataFmt = m.data_missa ? new Date(m.data_missa + 'T00:00').toLocaleDateString('pt-BR') : m.data_missa;
-                        
-                        // Status de Vagas
-                        let vagasStatus = `—`;
-                        if (m.total_vagas > 0) {
-                            const cor = m.preenchidas >= m.total_vagas ? 'var(--success-color)' : 'var(--error-color)';
-                            vagasStatus = `<strong style="color:${cor}">${m.preenchidas} / ${m.total_vagas}</strong>`;
-                        } else {
-                            vagasStatus = `<span style="color:var(--text-muted); font-size: 0.8rem;">(Sem req.)</span>`;
-                        }
+                missas.forEach(m => {
+                    const dataFmt = m.data_missa ? new Date(m.data_missa + 'T00:00').toLocaleDateString('pt-BR') : m.data_missa;
 
-                        const tr = document.createElement('tr');
-                        tr.innerHTML = `
+                    // Status de Vagas
+                    let vagasStatus = `—`;
+                    if (m.total_vagas > 0) {
+                        const cor = m.preenchidas >= m.total_vagas ? 'var(--success-color)' : 'var(--error-color)';
+                        vagasStatus = `<strong style="color:${cor}">${m.preenchidas} / ${m.total_vagas}</strong>`;
+                    } else {
+                        vagasStatus = `<span style="color:var(--text-muted); font-size: 0.8rem;">(Sem req.)</span>`;
+                    }
+
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
                             <td><strong>${dataFmt}</strong></td>
                             <td>${m.hora || '-'}</td>
                             <td>${m.comunidade || '-'}</td>
@@ -1462,8 +1462,8 @@ const app = {
                                 <button class="btn-icon btn-del-missa" data-id="${m.id_missa}" title="Excluir" style="color:var(--error-color)"><i class="ph ph-trash"></i></button>
                             </td>
                         `;
-                        tbody.appendChild(tr);
-                    });
+                    tbody.appendChild(tr);
+                });
 
                 document.querySelectorAll('.btn-edit-missa').forEach(btn => {
                     btn.addEventListener('click', (e) => {
@@ -1519,7 +1519,7 @@ const app = {
         const tipoSelect = newForm.querySelector('#missa-tipo');
         const comInput = newForm.querySelector('#missa-comunidade');
         const celInput = newForm.querySelector('#missa-celebrante');
-        
+
         const chkRec = newForm.querySelector('#missa-recorrente');
         const optRec = newForm.querySelector('#missa-recorrente-options');
         const dataFimInput = newForm.querySelector('#missa-data-fim');
@@ -1529,7 +1529,7 @@ const app = {
         // Pastorais dynamic list
         const pastoralContainer = newForm.querySelector('#missa-pastorais-container');
         const btnAddPastoral = newForm.querySelector('#btn-add-pastoral-missa');
-        
+
         // Função para carregar pastorais no select
         const allPastorais = await this._getAllPastorais();
 
@@ -1562,12 +1562,12 @@ const app = {
             const m = this.state.editingMissa;
             document.getElementById('title-missa-form').textContent = 'Editar Missa';
             idInput.value = m.id_missa;
-            
+
             let dt = m.data_missa || '';
             if (dt.includes('T')) dt = dt.split('T')[0];
             if (dt.includes(' ')) dt = dt.split(' ')[0];
             dataInput.value = dt;
-            
+
             horaInput.value = m.hora || '';
             tipoSelect.value = m.tipo || '';
             comInput.value = m.comunidade || '';
@@ -1667,7 +1667,7 @@ const app = {
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ ...baseData, data_missa: dataMissa })
                     });
-                    
+
                     if (res.ok) {
                         sucessos++;
                     } else {
@@ -2215,7 +2215,7 @@ const app = {
 
         // Collapse others if wanted? (Optional)
         row.querySelector('.btn-toggle-servos i').classList.replace('ph-plus-circle', 'ph-minus-circle');
-        
+
         const detailsTr = document.createElement('tr');
         detailsTr.className = 'servos-details-row';
         detailsTr.innerHTML = `<td colspan="7" style="padding:0;"><div id="servos-cont-${missaId}" class="servos-details-container">Carregando escala...</div></td>`;
@@ -2245,7 +2245,7 @@ const app = {
             } else {
                 missa.pastorais.forEach(req => {
                     const servsDestaPastoral = servos.filter(s => s.id_pastoral === req.id_pastoral);
-                    
+
                     html += `
                         <div class="pastoral-servos-group">
                             <h4><i class="ph ph-bookmark-simple"></i> ${req.pastoral_nome || 'Pastoral'} (${req.quantidade} vagas)</h4>
@@ -2356,12 +2356,12 @@ const app = {
     async setupRelatorioServosFiltro() {
         const form = document.getElementById('form-relatorio-servos');
         const pastList = document.getElementById('rel-servos-pastorais-list');
-        
+
         // Datas padrão (mês atual)
         const now = new Date();
         const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
         const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
-        
+
         const inicioEl = document.getElementById('rel-servos-inicio');
         const fimEl = document.getElementById('rel-servos-fim');
         if (inicioEl) inicioEl.value = firstDay;
@@ -2390,7 +2390,7 @@ const app = {
                 const start = document.getElementById('rel-servos-inicio').value;
                 const end = document.getElementById('rel-servos-fim').value;
                 const selected = Array.from(form.querySelectorAll('input[name="pastorais"]:checked')).map(v => v.value);
-                
+
                 this.state.relFilters = { start, end, pastorais: selected.join(',') };
                 this.navTo('relatorio-servos-preview');
                 this.gerarRelatorioServos(start, end, selected.join(','));
@@ -2406,9 +2406,9 @@ const app = {
             const url = `${API_URL}/relatorios/servos-missa?data_inicio=${start}&data_fim=${end}&pastorais=${pastorais}`;
             const res = await this.authFetch(url);
             if (!res.ok) throw new Error('Falha ao gerar relatório');
-            
+
             const data = await res.json();
-            
+
             let html = `
                 <div class="report-header">
                     <h1>Escala de Servos por Missa</h1>
@@ -2437,7 +2437,7 @@ const app = {
                                 <div class="report-pastoral-title">${p.pastoral_nome} (${p.quantidade} vagas)</div>
                                 <div class="report-servos-list">
                         `;
-                        
+
                         p.servos.forEach(s => {
                             const isVago = s === '(vago)';
                             html += `<div class="report-servo-item ${isVago ? 'vago' : ''}">${isVago ? '(vago)' : s}</div>`;
@@ -2506,12 +2506,12 @@ const app = {
 
     async abrirModalCalculaOfertas() {
         document.getElementById('modal-calcula-ofertas').style.display = 'flex';
-        
+
         const tbodyMoedas = document.getElementById('tb-calcula-moedas');
         const tbodyNotas = document.getElementById('tb-calcula-notas');
         tbodyMoedas.innerHTML = '';
         tbodyNotas.innerHTML = '';
-        
+
         const moedas = [0.01, 0.05, 0.10, 0.25, 0.50, 1.00];
         const notas = [2.00, 5.00, 10.00, 20.00, 50.00, 100.00, 200.00];
 
@@ -2529,10 +2529,10 @@ const app = {
         notas.forEach(v => adicionarLinha(v, 'ph-money', tbodyNotas));
 
         this.recalcularTotalOfertas();
-        
+
         const configs = this.state.configs || {};
         const printHeader = document.getElementById('print-ofertas-paroquia');
-        if(printHeader) {
+        if (printHeader) {
             printHeader.textContent = configs.paroquia_nome || 'Paróquia';
         }
 
@@ -2594,7 +2594,7 @@ const app = {
             const resDiz = await this.authFetch(`${API_URL}/dizimistas?q=Imaculado Coração de Maria&per_page=1`);
             const dataDiz = await resDiz.json();
             const dizimista = (dataDiz.data || []).find(d => d.nome.includes('Imaculado'));
-            
+
             if (!dizimista) {
                 throw new Error('Dizimista "Imaculado Coração de Maria" não encontrado no sistema.');
             }
@@ -2603,7 +2603,7 @@ const app = {
             const resTL = await this.authFetch(`${API_URL}/tipos-lancamentos`);
             const dataTL = await resTL.json();
             const tipoLanc = dataTL.find(t => t.descricao.toLowerCase().includes('oferta'));
-            
+
             // 3. Buscar ID do Tipo de Pagamento "Dinheiro"
             const resTP = await this.authFetch(`${API_URL}/tipos-pagamento`);
             const dataTP = await resTP.json();
@@ -2647,7 +2647,7 @@ const app = {
 
     imprimirCalculaOfertas() {
         document.body.classList.add('print-calcula-ofertas');
-        
+
         // Garantir tamanho A4 para ofertas
         const style = document.createElement('style');
         style.id = 'print-page-style';
@@ -2658,19 +2658,14 @@ const app = {
 
         document.body.classList.remove('print-calcula-ofertas');
         const dynamicStyle = document.getElementById('print-page-style');
-        if(dynamicStyle) dynamicStyle.remove();
+        if (dynamicStyle) dynamicStyle.remove();
     },
 
     abrirChatbot() {
-        // Pega o protocolo (http/https) e o IP/Domínio atual
-        const protocol = window.location.protocol;
-        const hostname = window.location.hostname;
+        // Agora usamos a rota configurada no Nginx em vez da porta 3000
+        // Essa linha foi alterada pelo bot
         const token = 'Alinne05@token';
-        
-        // Monta a URL para a porta 3000 com o token de segurança
-        const url = `${protocol}//${hostname}:3000/?token=${token}`;
-        
-        // Abre em uma nova aba
+        const url = `/chatbot/?token=${token}`;
         window.open(url, '_blank');
     }
 };
