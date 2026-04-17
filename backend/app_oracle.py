@@ -961,17 +961,65 @@ def manage_pastorais(id):
         db.commit()
         return jsonify({'message': 'Pastoral atualizada'})
 
-@app.route('/api/pastorais/<int:id>/membros', methods=['GET'])
-def get_pastoral_membros(id):
+@app.route('/api/pastorais/<int:id>/membros', methods=['GET', 'POST'])
+def handle_pastoral_membros(id):
     db = get_db()
-    membros = db.execute("""
-        SELECT d.id_dizimista, d.nome 
-        FROM dizimistas d
-        JOIN dizimista_pastoral dp ON d.id_dizimista = dp.id_dizimista
-        WHERE dp.id_pastoral = ? AND d.status = 1
-        ORDER BY d.nome
-    """, (id,)).fetchall()
-    return jsonify([dict(m) for m in membros])
+    if request.method == 'GET':
+        membros = db.execute("""
+            SELECT d.id_dizimista, d.nome,
+                   COALESCE(dp.papel, 'S') as papel
+            FROM dizimistas d
+            JOIN dizimista_pastoral dp ON d.id_dizimista = dp.id_dizimista
+            WHERE dp.id_pastoral = ? AND d.status = 1
+            ORDER BY dp.papel ASC, d.nome
+        """, (id,)).fetchall()
+        return jsonify([dict(m) for m in membros])
+
+    if request.method == 'POST':
+        data = request.json
+        id_dizimista = data.get('id_dizimista')
+        # Mapeia papel para S ou C
+        papel_orig = data.get('papel', 'servo')
+        papel_db = 'C' if papel_orig == 'coordenador' else 'S'
+
+        if not id_dizimista:
+            return jsonify({'error': 'id_dizimista obrigatório'}), 400
+        
+        try:
+            db.execute(
+                "INSERT INTO dizimista_pastoral (id_dizimista, id_pastoral, papel) VALUES (?, ?, ?)",
+                (id_dizimista, id, papel_db)
+            )
+            db.commit()
+            return jsonify({'message': 'Membro adicionado com sucesso'}), 201
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+@app.route('/api/pastorais/<int:id_pastoral>/membros/<int:id_dizimista>', methods=['PUT', 'DELETE'])
+def manage_pastoral_membro(id_pastoral, id_dizimista):
+    db = get_db()
+    if request.method == 'DELETE':
+        db.execute(
+            "DELETE FROM dizimista_pastoral WHERE id_dizimista = ? AND id_pastoral = ?",
+            (id_dizimista, id_pastoral)
+        )
+        db.commit()
+        return jsonify({'message': 'Membro removido'})
+    if request.method == 'PUT':
+        data = request.json
+        papel_orig = data.get('papel', 'servo')
+        papel_db = 'C' if papel_orig == 'coordenador' else 'S'
+        
+        try:
+            db.execute(
+                "UPDATE dizimista_pastoral SET papel = ? WHERE id_dizimista = ? AND id_pastoral = ?",
+                (papel_db, id_dizimista, id_pastoral)
+            )
+            db.commit()
+            return jsonify({'message': 'Papel atualizado'})
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+            return jsonify({'error': str(e)}), 500
 
 @app.route('/api/missas/<int:id_missa>/servos', methods=['GET', 'POST'])
 def handle_missa_servos(id_missa):

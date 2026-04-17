@@ -484,18 +484,54 @@
             <button class="btn btn-primary" onclick="app.navTo('pastoral-form')"><i class="ph ph-plus"></i> Nova
                 Pastoral</button>
         </div>
-        <div class="table-responsive mt-4 glass-panel">
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>Nome da Pastoral</th>
-                        <th>Ações</th>
-                    </tr>
-                </thead>
-                <tbody id="tb-pastorais"></tbody>
-            </table>
+
+        <!-- Lista de pastorais como cards expansíveis -->
+        <div id="pastorais-cards" class="mt-4" style="display: flex; flex-direction: column; gap: 1rem;">
+            <!-- JS popula aqui -->
         </div>
     </template>
+
+    <!-- Modal: Adicionar membro à pastoral -->
+    <div id="modal-add-membro" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width:480px;">
+            <div class="modal-header">
+                <h3><i class="ph ph-user-plus"></i> Adicionar Membro</h3>
+                <button type="button" class="btn-icon"
+                    onclick="document.getElementById('modal-add-membro').style.display='none'">
+                    <i class="ph ph-x"></i></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="membro-id-pastoral">
+                <div class="input-group mb-4" style="position:relative;">
+                    <label>Dizimista*</label>
+                    <div class="input-wrapper">
+                        <i class="ph ph-user"></i>
+                        <input type="text" id="membro-search" placeholder="Digite nome ou CPF..." autocomplete="off">
+                        <input type="hidden" id="membro-id-dizimista">
+                    </div>
+                    <div id="membro-search-results" class="autocomplete-results" style="display:none;"></div>
+                </div>
+                <div class="input-group mb-4" style="flex-direction:row; align-items:center; gap:2rem;">
+                    <label style="margin-bottom:0; font-weight:600;">Papel:</label>
+                    <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer; margin-bottom:0;">
+                        <input type="radio" name="membro-papel" id="papel-servo" value="servo" checked>
+                        <span>Servo</span>
+                    </label>
+                    <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer; margin-bottom:0;">
+                        <input type="radio" name="membro-papel" id="papel-coordenador" value="coordenador">
+                        <span><i class="ph ph-star" style="color:var(--warning-color, #f59e0b);"></i> Coordenador</span>
+                    </label>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary"
+                        onclick="document.getElementById('modal-add-membro').style.display='none'">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="btn-confirmar-add-membro">
+                        <i class="ph ph-check"></i> Adicionar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- View: Formulário de Pastoral -->
     <template id="view-pastoral-form">

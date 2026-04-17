@@ -1430,17 +1430,17 @@ const app = {
             const now = new Date();
             const defaultDataDe = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
 
-            const dataDe  = filtros.dataDe  || defaultDataDe;
+            const dataDe = filtros.dataDe || defaultDataDe;
             const dataAte = filtros.dataAte || '';
-            const tipo    = filtros.tipo    || '';
+            const tipo = filtros.tipo || '';
             const celebrante = filtros.celebrante || '';
 
             // Montar URL com filtros
             let url = `${API_URL}/missas?order=asc`;
-            if (dataDe)      url += `&data_de=${dataDe}`;
-            if (dataAte)     url += `&data_ate=${dataAte}`;
-            if (tipo)        url += `&tipo=${encodeURIComponent(tipo)}`;
-            if (celebrante)  url += `&celebrante=${encodeURIComponent(celebrante)}`;
+            if (dataDe) url += `&data_de=${dataDe}`;
+            if (dataAte) url += `&data_ate=${dataAte}`;
+            if (tipo) url += `&tipo=${encodeURIComponent(tipo)}`;
+            if (celebrante) url += `&celebrante=${encodeURIComponent(celebrante)}`;
 
             const res = await app.authFetch(url);
             if (res.ok) {
@@ -1530,7 +1530,7 @@ const app = {
 
         // Configurar listeners dos botões de filtro (uma só vez por render)
         const btnFiltrar = document.getElementById('btn-filtrar-missas');
-        const btnLimpar  = document.getElementById('btn-limpar-filtro-missas');
+        const btnLimpar = document.getElementById('btn-limpar-filtro-missas');
 
         const now = new Date();
         const defaultDataDe = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
@@ -1544,10 +1544,10 @@ const app = {
         if (btnFiltrar && !btnFiltrar.dataset.listenerAttached) {
             btnFiltrar.addEventListener('click', () => {
                 const f = {
-                    dataDe:      document.getElementById('filtro-missa-data-de')?.value || '',
-                    dataAte:     document.getElementById('filtro-missa-data-ate')?.value || '',
-                    tipo:        document.getElementById('filtro-missa-tipo')?.value || '',
-                    celebrante:  document.getElementById('filtro-missa-celebrante')?.value || ''
+                    dataDe: document.getElementById('filtro-missa-data-de')?.value || '',
+                    dataAte: document.getElementById('filtro-missa-data-ate')?.value || '',
+                    tipo: document.getElementById('filtro-missa-tipo')?.value || '',
+                    celebrante: document.getElementById('filtro-missa-celebrante')?.value || ''
                 };
                 this.loadMissas(f);
             });
@@ -1556,14 +1556,14 @@ const app = {
 
         if (btnLimpar && !btnLimpar.dataset.listenerAttached) {
             btnLimpar.addEventListener('click', () => {
-                const inputDe  = document.getElementById('filtro-missa-data-de');
+                const inputDe = document.getElementById('filtro-missa-data-de');
                 const inputAte = document.getElementById('filtro-missa-data-ate');
-                const selTipo  = document.getElementById('filtro-missa-tipo');
-                const inpCel   = document.getElementById('filtro-missa-celebrante');
-                if (inputDe)  inputDe.value  = defaultDataDe;
+                const selTipo = document.getElementById('filtro-missa-tipo');
+                const inpCel = document.getElementById('filtro-missa-celebrante');
+                if (inputDe) inputDe.value = defaultDataDe;
                 if (inputAte) inputAte.value = '';
-                if (selTipo)  selTipo.value  = '';
-                if (inpCel)   inpCel.value   = '';
+                if (selTipo) selTipo.value = '';
+                if (inpCel) inpCel.value = '';
                 this.loadMissas();
             });
             btnLimpar.dataset.listenerAttached = 'true';
@@ -2140,23 +2140,315 @@ const app = {
         try {
             const res = await this.authFetch(`${API_URL}/pastorais`);
             const pastorais = await res.json();
-            const tbody = document.getElementById('tb-pastorais');
-            if (tbody) {
-                tbody.innerHTML = '';
-                pastorais.forEach(p => {
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td>${p.nome}</td>
-                        <td class="actions-cell">
-                            <button class="btn-icon" onclick="app.editPastoral(${p.id_pastoral})" title="Editar"><i class="ph ph-pencil"></i></button>
-                            <button class="btn-icon" onclick="app.deletePastoral(${p.id_pastoral})" title="Excluir"><i class="ph ph-trash" style="color: var(--error-color);"></i></button>
-                        </td>
-                    `;
-                    tbody.appendChild(tr);
+            const container = document.getElementById('pastorais-cards');
+            if (!container) return;
+            container.innerHTML = '';
+
+            if (pastorais.length === 0) {
+                container.innerHTML = `<div class="glass-panel" style="text-align:center; color:var(--text-muted); padding:2rem;">
+                    <i class="ph ph-users-three" style="font-size:2rem;"></i><p>Nenhuma pastoral cadastrada.</p></div>`;
+                return;
+            }
+
+            for (const p of pastorais) {
+                const card = document.createElement('div');
+                card.className = 'glass-panel pastoral-card';
+                card.dataset.pastoralId = p.id_pastoral;
+                card.innerHTML = `
+                    <div class="pastoral-card-header" style="display:flex; justify-content:space-between; align-items:center; cursor:pointer; padding: 0.25rem 0;">
+                        <div style="display:flex; align-items:center; gap:0.75rem;">
+                            <i class="ph ph-caret-right pastoral-toggle-icon" style="transition:transform 0.25s; color:var(--primary-color); font-size:1.1rem;"></i>
+                            <span style="font-weight:600; font-size:1.05rem;">${p.nome}</span>
+                            <span class="badge badge-success pastoral-count-badge" style="font-size:0.75rem;">carregando...</span>
+                        </div>
+                        <div class="actions-cell" style="gap:0.5rem;">
+                            <button class="btn btn-secondary btn-sm btn-add-membro-pastoral" data-id="${p.id_pastoral}" data-nome="${p.nome}" title="Adicionar Membro">
+                                <i class="ph ph-user-plus"></i> Membro
+                            </button>
+                            <button class="btn-icon btn-edit-pastoral" data-id="${p.id_pastoral}" title="Editar pastoral" style="color:var(--primary-color)">
+                                <i class="ph ph-pencil"></i>
+                            </button>
+                            <button class="btn-icon btn-del-pastoral" data-id="${p.id_pastoral}" title="Excluir pastoral" style="color:var(--error-color)">
+                                <i class="ph ph-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="pastoral-membros-container" style="display:none; margin-top:1rem; padding-top:1rem; border-top:1px dashed var(--border-color);">
+                        <div class="pastoral-membros-list">
+                            <span style="color:var(--text-muted); font-style:italic; font-size:0.9rem;">Carregando membros...</span>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+
+                // Toggle expansão
+                const header = card.querySelector('.pastoral-card-header');
+                const membrosContainer = card.querySelector('.pastoral-membros-container');
+                const toggleIcon = card.querySelector('.pastoral-toggle-icon');
+
+                header.addEventListener('click', async (e) => {
+                    // Não fechar ao clicar nos botões de ação
+                    if (e.target.closest('button')) return;
+                    const isOpen = membrosContainer.style.display !== 'none';
+                    if (isOpen) {
+                        membrosContainer.style.display = 'none';
+                        toggleIcon.style.transform = '';
+                    } else {
+                        membrosContainer.style.display = 'block';
+                        toggleIcon.style.transform = 'rotate(90deg)';
+                        await this._loadMembrosPastoral(p.id_pastoral, card);
+                    }
                 });
+
+                // Botão Editar
+                card.querySelector('.btn-edit-pastoral').addEventListener('click', () => this.editPastoral(p.id_pastoral));
+
+                // Botão Excluir
+                card.querySelector('.btn-del-pastoral').addEventListener('click', () => this.deletePastoral(p.id_pastoral));
+
+                // Botão Adicionar Membro
+                card.querySelector('.btn-add-membro-pastoral').addEventListener('click', () => {
+                    this.openAddMembroModal(p.id_pastoral, p.nome, card);
+                });
+
+                // Carregar contagem inicial
+                this._atualizarBadgeCount(p.id_pastoral, card);
             }
         } catch (error) {
             this.showToast('Erro ao carregar pastorais', 'error');
+        }
+    },
+
+    async _atualizarBadgeCount(idPastoral, card) {
+        try {
+            const res = await this.authFetch(`${API_URL}/pastorais/${idPastoral}/membros`);
+            if (res.ok) {
+                const membros = await res.json();
+                const badge = card.querySelector('.pastoral-count-badge');
+                if (badge) badge.textContent = `${membros.length} membro${membros.length !== 1 ? 's' : ''}`;
+            }
+        } catch (e) { }
+    },
+
+    async _loadMembrosPastoral(idPastoral, card) {
+        const listDiv = card.querySelector('.pastoral-membros-list');
+        listDiv.innerHTML = '<span style="color:var(--text-muted); font-size:0.9rem; font-style:italic;">Carregando...</span>';
+
+        try {
+            const res = await this.authFetch(`${API_URL}/pastorais/${idPastoral}/membros`);
+            if (!res.ok) throw new Error();
+            const membros = await res.json();
+
+            // Atualiza badge count
+            const badge = card.querySelector('.pastoral-count-badge');
+            if (badge) badge.textContent = `${membros.length} membro${membros.length !== 1 ? 's' : ''}`;
+
+            if (membros.length === 0) {
+                listDiv.innerHTML = `<p style="color:var(--text-muted); font-style:italic; font-size:0.9rem;">
+                    <i class="ph ph-info"></i> Nenhum membro vinculado. Clique em "+ Membro" para adicionar.</p>`;
+                return;
+            }
+
+            listDiv.innerHTML = '';
+
+            // Separar coordenadores e servos para ordem visual
+            const coordenadores = membros.filter(m => m.papel === 'C');
+            const servos = membros.filter(m => m.papel !== 'C');
+
+            const renderGrupo = (titulo, lista, isCoord) => {
+                if (lista.length === 0) return;
+                const header = document.createElement('div');
+                header.style.cssText = 'font-size:0.78rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.5rem; margin-top:0.75rem;';
+                header.innerHTML = isCoord
+                    ? `<i class="ph ph-star" style="color:#f59e0b;"></i> ${titulo}`
+                    : `<i class="ph ph-users"></i> ${titulo}`;
+                listDiv.appendChild(header);
+
+                lista.forEach(m => {
+                    const row = document.createElement('div');
+                    row.className = 'membro-row';
+                    row.dataset.dizId = m.id_dizimista;
+                    row.style.cssText = 'display:flex; align-items:center; gap:0.75rem; padding:0.5rem 0.75rem; border-radius:var(--radius-md); background:var(--bg-main); margin-bottom:0.35rem;';
+                    row.innerHTML = `
+                        <i class="ph ${isCoord ? 'ph-star' : 'ph-user'}" style="color:${isCoord ? '#f59e0b' : 'var(--primary-color)'}; font-size:1.1rem; flex-shrink:0;"></i>
+                        <span style="flex:1; font-weight:${isCoord ? '600' : '400'};">${m.nome}</span>
+                        <label title="${isCoord ? 'Remover coordenador' : 'Promover a coordenador'}"
+                            style="display:flex; align-items:center; gap:0.35rem; font-size:0.8rem; cursor:pointer; color:var(--text-muted);">
+                            <input type="checkbox" class="chk-coordenador"
+                                data-diz-id="${m.id_dizimista}"
+                                data-pastoral-id="${idPastoral}"
+                                ${isCoord ? 'checked' : ''}
+                                style="width:auto; cursor:pointer; accent-color:#f59e0b;">
+                            Coord.
+                        </label>
+                        <button class="btn-icon btn-rm-membro" data-diz-id="${m.id_dizimista}" data-pastoral-id="${idPastoral}"
+                            title="Remover membro" style="color:var(--error-color); flex-shrink:0;">
+                            <i class="ph ph-x-circle"></i>
+                        </button>
+                    `;
+
+                    // Checkbox alterar papel
+                    row.querySelector('.chk-coordenador').addEventListener('change', async (e) => {
+                        const novoPapel = e.target.checked ? 'coordenador' : 'servo';
+                        await this.alterarPapelMembro(idPastoral, m.id_dizimista, novoPapel);
+                        await this._loadMembrosPastoral(idPastoral, card);
+                    });
+
+                    // Botão remover
+                    row.querySelector('.btn-rm-membro').addEventListener('click', async () => {
+                        await this.removerMembroPastoral(idPastoral, m.id_dizimista, m.nome);
+                        await this._loadMembrosPastoral(idPastoral, card);
+                        this._atualizarBadgeCount(idPastoral, card);
+                    });
+
+                    listDiv.appendChild(row);
+                });
+            };
+
+            renderGrupo('Coordenadores', coordenadores, true);
+            renderGrupo('Servos', servos, false);
+
+        } catch (e) {
+            listDiv.innerHTML = '<span style="color:var(--error-color);">Erro ao carregar membros.</span>';
+        }
+    },
+
+    openAddMembroModal(idPastoral, nomePastoral, card) {
+        const modal = document.getElementById('modal-add-membro');
+        if (!modal) return;
+
+        document.getElementById('membro-id-pastoral').value = idPastoral;
+        document.getElementById('membro-id-dizimista').value = '';
+        document.getElementById('membro-search').value = '';
+        document.getElementById('papel-servo').checked = true;
+        document.getElementById('membro-search-results').style.display = 'none';
+        modal.querySelector('h3').innerHTML = `<i class="ph ph-user-plus"></i> Adicionar Membro em "${nomePastoral}"`;
+
+        modal.style.display = 'flex';
+
+        // Setup autocomplete (se não foi feito ainda)
+        this._setupAddMembroModal(card);
+    },
+
+    _setupAddMembroModal(card) {
+        const searchInput = document.getElementById('membro-search');
+        const idInput = document.getElementById('membro-id-dizimista');
+        const resultsDiv = document.getElementById('membro-search-results');
+        const btnConfirmar = document.getElementById('btn-confirmar-add-membro');
+
+        // Limpar listeners anteriores clonando
+        const newSearch = searchInput.cloneNode(true);
+        searchInput.parentNode.replaceChild(newSearch, searchInput);
+        const newBtn = btnConfirmar.cloneNode(true);
+        btnConfirmar.parentNode.replaceChild(newBtn, btnConfirmar);
+
+        let searchTimeout = null;
+        newSearch.addEventListener('input', () => {
+            clearTimeout(searchTimeout);
+            const q = newSearch.value.trim();
+            idInput.value = '';
+            if (q.length < 2) { resultsDiv.style.display = 'none'; return; }
+
+            searchTimeout = setTimeout(async () => {
+                try {
+                    const res = await this.authFetch(`${API_URL}/dizimistas?q=${encodeURIComponent(q)}&per_page=20`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        const list = data.data || [];
+                        resultsDiv.innerHTML = '';
+                        if (list.length === 0) {
+                            resultsDiv.innerHTML = '<div class="autocomplete-item"><i>Nenhum resultado</i></div>';
+                        } else {
+                            list.forEach(d => {
+                                const item = document.createElement('div');
+                                item.className = 'autocomplete-item';
+                                item.innerHTML = `<strong>${d.nome}</strong><small>CPF: ${d.cpf || '-'}</small>`;
+                                item.addEventListener('click', () => {
+                                    newSearch.value = d.nome;
+                                    idInput.value = d.id_dizimista;
+                                    resultsDiv.style.display = 'none';
+                                });
+                                resultsDiv.appendChild(item);
+                            });
+                        }
+                        resultsDiv.style.display = 'block';
+                    }
+                } catch (e) { }
+            }, 300);
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!newSearch.contains(e.target) && !resultsDiv.contains(e.target)) {
+                resultsDiv.style.display = 'none';
+            }
+        });
+
+        newBtn.addEventListener('click', async () => {
+            const idPastoral = document.getElementById('membro-id-pastoral').value;
+            const idDizimista = idInput.value;
+            const papel = document.querySelector('input[name="membro-papel"]:checked')?.value || 'servo';
+
+            if (!idDizimista) {
+                this.showToast('Selecione um dizimista da lista', 'error');
+                return;
+            }
+
+            try {
+                const res = await this.authFetch(`${API_URL}/pastorais/${idPastoral}/membros`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id_dizimista: parseInt(idDizimista), papel })
+                });
+                if (res.ok) {
+                    this.showToast('Membro adicionado com sucesso!');
+                    document.getElementById('modal-add-membro').style.display = 'none';
+                    // Atualiza os membros do card correspondente
+                    if (card) {
+                        const membrosContainer = card.querySelector('.pastoral-membros-container');
+                        if (membrosContainer.style.display !== 'none') {
+                            await this._loadMembrosPastoral(idPastoral, card);
+                        }
+                        this._atualizarBadgeCount(idPastoral, card);
+                    }
+                } else {
+                    const err = await res.json();
+                    this.showToast(err.error || 'Erro ao adicionar membro', 'error');
+                }
+            } catch (e) {
+                this.showToast('Erro de conexão', 'error');
+            }
+        });
+    },
+
+    async alterarPapelMembro(idPastoral, idDizimista, papel) {
+        try {
+            const res = await this.authFetch(`${API_URL}/pastorais/${idPastoral}/membros/${idDizimista}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ papel })
+            });
+            if (res.ok) {
+                this.showToast(`Papel alterado para ${papel === 'coordenador' ? 'Coordenador' : 'Servo'}`);
+            } else {
+                const err = await res.json();
+                this.showToast(err.error || 'Erro ao alterar papel', 'error');
+            }
+        } catch (e) {
+            this.showToast('Erro de conexão', 'error');
+        }
+    },
+
+    async removerMembroPastoral(idPastoral, idDizimista, nome) {
+        if (!confirm(`Remover "${nome}" desta pastoral?`)) return;
+        try {
+            const res = await this.authFetch(`${API_URL}/pastorais/${idPastoral}/membros/${idDizimista}`, { method: 'DELETE' });
+            if (res.ok) {
+                this.showToast('Membro removido');
+            } else {
+                this.showToast('Erro ao remover membro', 'error');
+            }
+        } catch (e) {
+            this.showToast('Erro de conexão', 'error');
         }
     },
 
