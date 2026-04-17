@@ -84,6 +84,20 @@ def check_permission_backend(permission_name):
     """, (int(user['id_perfil']), permission_name)).fetchone()
     return has and has['total'] > 0
 
+def check_user_coordination(user_id, id_pastoral):
+    if not user_id: return False
+    db = get_db()
+    user = db.execute("SELECT id_perfil, id_dizimista FROM usuarios WHERE id_usuario = ?", (user_id,)).fetchone()
+    if not user: return False
+    if int(user['id_perfil']) == 1: return True
+    if not user['id_dizimista']: return False
+    
+    res = db.execute("""
+        SELECT COUNT(*) as total FROM dizimista_pastoral 
+        WHERE id_dizimista = ? AND id_pastoral = ? AND papel = 'C'
+    """, (user['id_dizimista'], id_pastoral)).fetchone()
+    return res and res['total'] > 0
+
 @app.route('/')
 def index():
     return app.send_static_file('index.html')
@@ -951,8 +965,16 @@ def get_tipos_lancamentos():
 @requires_permission('Visualizar Pastorais')
 def get_pastorais():
     db = get_db()
-    pastorais = db.execute("SELECT * FROM pastorais WHERE status = 1 ORDER BY nome").fetchall()
-    return jsonify([dict(p) for p in pastorais])
+    user_id = request.headers.get('X-User-Id')
+    pastorais_rows = db.execute("SELECT * FROM pastorais WHERE status = 1 ORDER BY nome").fetchall()
+    
+    result = []
+    for p in pastorais_rows:
+        item = dict(p)
+        item['pode_editar'] = check_user_coordination(user_id, p['id_pastoral'])
+        result.append(item)
+        
+    return jsonify(result)
 
 @app.route('/api/pastorais', methods=['POST'])
 @requires_permission('Criar Pastorais')
@@ -967,6 +989,10 @@ def create_pastoral():
 @app.route('/api/pastorais/<int:id>', methods=['PUT'])
 @requires_permission('Editar Pastorais')
 def update_pastoral(id):
+    user_id = request.headers.get('X-User-Id')
+    if not check_user_coordination(user_id, id):
+        return jsonify({'error': 'Acesso Negado: Você só pode alterar pastorais das quais é coordenador.'}), 403
+        
     db = get_db()
     data = request.json
     db.execute("UPDATE pastorais SET nome = ? WHERE id_pastoral = ?", (data['nome'], id))
@@ -976,6 +1002,10 @@ def update_pastoral(id):
 @app.route('/api/pastorais/<int:id>', methods=['DELETE'])
 @requires_permission('Excluir Pastorais')
 def delete_pastoral(id):
+    user_id = request.headers.get('X-User-Id')
+    if not check_user_coordination(user_id, id):
+        return jsonify({'error': 'Acesso Negado: Você só pode excluir pastorais das quais é coordenador.'}), 403
+
     db = get_db()
     db.execute("UPDATE pastorais SET status = 0 WHERE id_pastoral = ?", (id,))
     db.commit()
@@ -998,6 +1028,10 @@ def get_pastoral_membros(id):
 @app.route('/api/pastorais/<int:id>/membros', methods=['POST'])
 @requires_permission('Editar Pastorais')
 def add_pastoral_membro(id):
+    user_id = request.headers.get('X-User-Id')
+    if not check_user_coordination(user_id, id):
+        return jsonify({'error': 'Somente coordenadores podem incluir membros nesta pastoral.'}), 403
+
     db = get_db()
     data = request.json
     id_dizimista = data.get('id_dizimista')
@@ -1021,6 +1055,10 @@ def add_pastoral_membro(id):
 @app.route('/api/pastorais/<int:id_pastoral>/membros/<int:id_dizimista>', methods=['DELETE'])
 @requires_permission('Editar Pastorais')
 def remove_pastoral_membro(id_pastoral, id_dizimista):
+    user_id = request.headers.get('X-User-Id')
+    if not check_user_coordination(user_id, id_pastoral):
+        return jsonify({'error': 'Somente coordenadores podem remover membros desta pastoral.'}), 403
+
     db = get_db()
     db.execute(
         "DELETE FROM dizimista_pastoral WHERE id_dizimista = ? AND id_pastoral = ?",
@@ -1032,6 +1070,10 @@ def remove_pastoral_membro(id_pastoral, id_dizimista):
 @app.route('/api/pastorais/<int:id_pastoral>/membros/<int:id_dizimista>', methods=['PUT'])
 @requires_permission('Editar Pastorais')
 def update_pastoral_membro_papel(id_pastoral, id_dizimista):
+    user_id = request.headers.get('X-User-Id')
+    if not check_user_coordination(user_id, id_pastoral):
+        return jsonify({'error': 'Somente coordenadores podem alterar papéis nesta pastoral.'}), 403
+
     db = get_db()
     data = request.json
     papel_orig = data.get('papel', 'servo')

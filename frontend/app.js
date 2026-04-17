@@ -3,7 +3,7 @@ const API_URL = (window.location.hostname === 'localhost' || window.location.hos
     ? 'http://localhost:5000/api'
     : '/api';
 
-const APP_VERSION = '2.12';
+const APP_VERSION = '2.13';
 
 const app = {
     state: {
@@ -1333,6 +1333,7 @@ const app = {
                         <td><strong>${u.nome}</strong></td>
                         <td>${u.login}</td>
                         <td>${u.perfil_nome || '-'}</td>
+                        <td style="font-size: 0.9rem; color: var(--text-muted);">${u.nome_dizimista || '-'}</td>
                         <td><span class="badge ${u.status === 1 ? 'badge-success' : 'badge-danger'}">${u.status === 1 ? 'Ativo' : 'Inativo'}</span></td>
                         <td>
                             <button class="btn-icon btn-edit-usr" data-user='${JSON.stringify(u)}' title="Editar"><i class="ph ph-pencil-simple"></i></button>
@@ -2175,8 +2176,8 @@ const app = {
                 const pNome = p.nome || 'Sem Nome';
                 const pId = p.id_pastoral || '0';
 
-                const canEdit = this.hasPermission('Editar Pastorais');
-                const canDel = this.hasPermission('Excluir Pastorais');
+                const canEdit = this.hasPermission('Editar Pastorais') && p.pode_editar;
+                const canDel = this.hasPermission('Excluir Pastorais') && p.pode_editar;
 
                 card.innerHTML = `
                     <div class="pastoral-card-header" style="display:flex; justify-content:space-between; align-items:center; cursor:pointer; padding: 0.25rem 0;">
@@ -2224,7 +2225,7 @@ const app = {
                     } else {
                         membrosContainer.style.display = 'block';
                         toggleIcon.style.transform = 'rotate(90deg)';
-                        await this._loadMembrosPastoral(p.id_pastoral, card);
+                        await this._loadMembrosPastoral(p.id_pastoral, card, canEdit);
                     }
                 });
 
@@ -2258,7 +2259,7 @@ const app = {
         } catch (e) { }
     },
 
-    async _loadMembrosPastoral(idPastoral, card) {
+    async _loadMembrosPastoral(idPastoral, card, canEditFromHeader = false) {
         const listDiv = card.querySelector('.pastoral-membros-list');
         listDiv.innerHTML = '<span style="color:var(--text-muted); font-size:0.9rem; font-style:italic;">Carregando...</span>';
 
@@ -2292,7 +2293,7 @@ const app = {
                     : `<i class="ph ph-users"></i> ${titulo}`;
                 listDiv.appendChild(header);
 
-                const canEdit = this.hasPermission('Editar Pastorais');
+                const canEdit = canEditFromHeader;
 
                 lista.forEach(m => {
                     const row = document.createElement('div');
