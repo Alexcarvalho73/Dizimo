@@ -947,31 +947,39 @@ def get_tipos_lancamentos():
     return jsonify([dict(t) for t in tipos])
 
 # --- Pastorais ---
-@app.route('/api/pastorais', methods=['GET', 'POST'])
-def handle_pastorais():
+@app.route('/api/pastorais', methods=['GET'])
+@requires_permission('Visualizar Pastorais')
+def get_pastorais():
     db = get_db()
-    if request.method == 'GET':
-        pastorais = db.execute("SELECT * FROM pastorais WHERE status = 1 ORDER BY nome").fetchall()
-        return jsonify([dict(p) for p in pastorais])
-    if request.method == 'POST':
-        data = request.json
-        db.execute("INSERT INTO pastorais (nome) VALUES (?)", (data['nome'],))
-        new_id = fetch_scalar(db.execute("SELECT MAX(id_pastoral) FROM pastorais"))
-        db.commit()
-        return jsonify({'message': 'Pastoral criada com sucesso', 'id': new_id}), 201
+    pastorais = db.execute("SELECT * FROM pastorais WHERE status = 1 ORDER BY nome").fetchall()
+    return jsonify([dict(p) for p in pastorais])
 
-@app.route('/api/pastorais/<int:id>', methods=['PUT', 'DELETE'])
-def manage_pastorais(id):
+@app.route('/api/pastorais', methods=['POST'])
+@requires_permission('Criar Pastorais')
+def create_pastoral():
     db = get_db()
-    if request.method == 'DELETE':
-        db.execute("UPDATE pastorais SET status = 0 WHERE id_pastoral = ?", (id,))
-        db.commit()
-        return jsonify({'message': 'Pastoral removida'})
-    if request.method == 'PUT':
-        data = request.json
-        db.execute("UPDATE pastorais SET nome = ? WHERE id_pastoral = ?", (data['nome'], id))
-        db.commit()
-        return jsonify({'message': 'Pastoral atualizada'})
+    data = request.json
+    db.execute("INSERT INTO pastorais (nome) VALUES (?)", (data['nome'],))
+    new_id = fetch_scalar(db.execute("SELECT MAX(id_pastoral) FROM pastorais"))
+    db.commit()
+    return jsonify({'message': 'Pastoral criada com sucesso', 'id': new_id}), 201
+
+@app.route('/api/pastorais/<int:id>', methods=['PUT'])
+@requires_permission('Editar Pastorais')
+def update_pastoral(id):
+    db = get_db()
+    data = request.json
+    db.execute("UPDATE pastorais SET nome = ? WHERE id_pastoral = ?", (data['nome'], id))
+    db.commit()
+    return jsonify({'message': 'Pastoral atualizada'})
+
+@app.route('/api/pastorais/<int:id>', methods=['DELETE'])
+@requires_permission('Excluir Pastorais')
+def delete_pastoral(id):
+    db = get_db()
+    db.execute("UPDATE pastorais SET status = 0 WHERE id_pastoral = ?", (id,))
+    db.commit()
+    return jsonify({'message': 'Pastoral removida'})
 
 @app.route('/api/pastorais/<int:id>/membros', methods=['GET', 'POST'])
 def handle_pastoral_membros(id):

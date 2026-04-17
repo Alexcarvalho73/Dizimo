@@ -1873,6 +1873,10 @@ const app = {
                         keywords: ['Missa']
                     },
                     {
+                        label: '👥 Pastorais',
+                        keywords: ['Pastoral', 'Pastorais']
+                    },
+                    {
                         label: '👥 Usuários',
                         keywords: ['Usuário', 'Perfil', 'Usuários', 'Perfis']
                     },
