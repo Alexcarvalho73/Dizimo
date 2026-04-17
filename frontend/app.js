@@ -517,6 +517,9 @@ const app = {
                         <td>
                             <button class="btn-icon btn-hist-diz" data-id="${d.id_dizimista}" data-nome="${d.nome}" title="Ver Histórico"><i class="ph ph-file-text"></i></button>
                             <button class="btn-icon btn-edit-diz" data-diz='${JSON.stringify(d)}' title="Editar"><i class="ph ph-pencil-simple"></i></button>
+                            ${this.hasPermission('Excluir Dizimistas') ? `
+                                <button class="btn-icon btn-del-diz" data-id="${d.id_dizimista}" data-nome="${d.nome}" title="Excluir" style="color:var(--error-color)"><i class="ph ph-trash"></i></button>
+                            ` : ''}
                         </td>
                     `;
                     tbody.appendChild(tr);
@@ -539,6 +542,26 @@ const app = {
                         const id = e.currentTarget.getAttribute('data-id');
                         const nome = e.currentTarget.getAttribute('data-nome');
                         this.openHistoricoModal(id, nome);
+                    });
+                });
+
+                document.querySelectorAll('.btn-del-diz').forEach(btn => {
+                    btn.addEventListener('click', async (e) => {
+                        const id = e.currentTarget.getAttribute('data-id');
+                        const nome = e.currentTarget.getAttribute('data-nome');
+                        if (confirm(`Deseja realmente inativar o dizimista ${nome}?`)) {
+                            try {
+                                const res = await this.authFetch(`${API_URL}/dizimistas/${id}`, { method: 'DELETE' });
+                                if (res.ok) {
+                                    this.showToast('Dizimista inativado com sucesso');
+                                    this.loadDizimistas(q, fonetica, page, perPage);
+                                } else {
+                                    this.handleResponseError(res, 'Erro ao excluir');
+                                }
+                            } catch (e) {
+                                this.showToast('Erro de conexão', 'error');
+                            }
+                        }
                     });
                 });
 
