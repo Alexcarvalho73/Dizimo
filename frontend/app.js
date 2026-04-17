@@ -3,7 +3,7 @@ const API_URL = (window.location.hostname === 'localhost' || window.location.hos
     ? 'http://localhost:5000/api'
     : '/api';
 
-const APP_VERSION = '2.11';
+const APP_VERSION = '2.12';
 
 const app = {
     state: {
@@ -2577,7 +2577,7 @@ const app = {
                 if (res.ok) {
                     const responseJson = await res.json();
                     const data = responseJson.data || []; // A API retorna { data: [...] }
-                    
+
                     results.innerHTML = '';
                     if (data.length > 0) {
                         data.forEach(d => {
