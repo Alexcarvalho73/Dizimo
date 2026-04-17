@@ -2139,30 +2139,39 @@ const app = {
     async loadPastoraisList() {
         try {
             const res = await this.authFetch(`${API_URL}/pastorais`);
+            if (!res.ok) {
+                this.handleResponseError(res, 'Erro ao carregar pastorais');
+                return;
+            }
             const pastorais = await res.json();
             const container = document.getElementById('pastorais-cards');
             if (!container) return;
             container.innerHTML = '';
 
-            if (pastorais.length === 0) {
+            if (!Array.isArray(pastorais) || pastorais.length === 0) {
                 container.innerHTML = `<div class="glass-panel" style="text-align:center; color:var(--text-muted); padding:2rem;">
                     <i class="ph ph-users-three" style="font-size:2rem;"></i><p>Nenhuma pastoral cadastrada.</p></div>`;
                 return;
             }
 
             for (const p of pastorais) {
+                if (!p) continue;
+                console.log("Renderizando pastoral:", p);
                 const card = document.createElement('div');
                 card.className = 'glass-panel pastoral-card';
                 card.dataset.pastoralId = p.id_pastoral;
+                const pNome = p.nome || 'Sem Nome';
+                const pId = p.id_pastoral || '0';
+
                 card.innerHTML = `
                     <div class="pastoral-card-header" style="display:flex; justify-content:space-between; align-items:center; cursor:pointer; padding: 0.25rem 0;">
                         <div style="display:flex; align-items:center; gap:0.75rem;">
                             <i class="ph ph-caret-right pastoral-toggle-icon" style="transition:transform 0.25s; color:var(--primary-color); font-size:1.1rem;"></i>
-                            <span style="font-weight:600; font-size:1.05rem;">${p.nome}</span>
+                            <span style="font-weight:600; font-size:1.05rem;">${pNome}</span>
                             <span class="badge badge-success pastoral-count-badge" style="font-size:0.75rem;">carregando...</span>
                         </div>
                         <div class="actions-cell" style="gap:0.5rem;">
-                            <button class="btn btn-secondary btn-sm btn-add-membro-pastoral" data-id="${p.id_pastoral}" data-nome="${p.nome}" title="Adicionar Membro">
+                            <button class="btn btn-secondary btn-sm btn-add-membro-pastoral" data-id="${pId}" data-nome="${pNome}" title="Adicionar Membro">
                                 <i class="ph ph-user-plus"></i> Membro
                             </button>
                             <button class="btn-icon btn-edit-pastoral" data-id="${p.id_pastoral}" title="Editar pastoral" style="color:var(--primary-color)">

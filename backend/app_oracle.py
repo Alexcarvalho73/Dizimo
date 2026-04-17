@@ -1019,7 +1019,6 @@ def manage_pastoral_membro(id_pastoral, id_dizimista):
             return jsonify({'message': 'Papel atualizado'})
         except Exception as e:
             return jsonify({'error': str(e)}), 500
-            return jsonify({'error': str(e)}), 500
 
 @app.route('/api/missas/<int:id_missa>/servos', methods=['GET', 'POST'])
 def handle_missa_servos(id_missa):
