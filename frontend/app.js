@@ -3,7 +3,7 @@ const API_URL = (window.location.hostname === 'localhost' || window.location.hos
     ? 'http://localhost:5000/api'
     : '/api';
 
-const APP_VERSION = '2.14';
+const APP_VERSION = '2.15';
 
 const app = {
     state: {
