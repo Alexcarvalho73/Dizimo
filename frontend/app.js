@@ -3,7 +3,7 @@ const API_URL = (window.location.hostname === 'localhost' || window.location.hos
     ? 'http://localhost:5000/api'
     : '/api';
 
-const APP_VERSION = '2.13';
+const APP_VERSION = '2.14';
 
 const app = {
     state: {
@@ -2196,6 +2196,7 @@ const app = {
                 const card = document.createElement('div');
                 card.className = 'glass-panel pastoral-card';
                 card.dataset.pastoralId = p.id_pastoral;
+                card.dataset.podeEditar = p.pode_editar;
                 const pNome = p.nome || 'Sem Nome';
                 const pId = p.id_pastoral || '0';
 
@@ -2248,7 +2249,7 @@ const app = {
                     } else {
                         membrosContainer.style.display = 'block';
                         toggleIcon.style.transform = 'rotate(90deg)';
-                        await this._loadMembrosPastoral(p.id_pastoral, card, canEdit);
+                        await this._loadMembrosPastoral(p.id_pastoral, card);
                     }
                 });
 
@@ -2282,9 +2283,14 @@ const app = {
         } catch (e) { }
     },
 
-    async _loadMembrosPastoral(idPastoral, card, canEditFromHeader = false) {
+    async _loadMembrosPastoral(idPastoral, card) {
         const listDiv = card.querySelector('.pastoral-membros-list');
         listDiv.innerHTML = '<span style="color:var(--text-muted); font-size:0.9rem; font-style:italic;">Carregando...</span>';
+
+        // Recupera flag de edição persistida no card
+        const podeEditarPastoral = card.dataset.podeEditar === 'true';
+        const hasPermEdit = this.hasPermission('Editar Pastorais');
+        const canEdit = podeEditarPastoral && hasPermEdit;
 
         try {
             const res = await this.authFetch(`${API_URL}/pastorais/${idPastoral}/membros`);
@@ -2316,7 +2322,6 @@ const app = {
                     : `<i class="ph ph-users"></i> ${titulo}`;
                 listDiv.appendChild(header);
 
-                const canEdit = canEditFromHeader;
 
                 lista.forEach(m => {
                     const row = document.createElement('div');
