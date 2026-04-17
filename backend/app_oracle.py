@@ -857,9 +857,11 @@ def handle_perfil_permissoes(id_perfil):
 def get_usuarios():
     db = get_db()
     query = """
-        SELECT u.id_usuario, u.nome, u.login, u.status, u.data_criacao, p.descricao as perfil_nome, u.id_perfil
+        SELECT u.id_usuario, u.nome, u.login, u.status, u.data_criacao, p.descricao as perfil_nome, 
+               u.id_perfil, u.id_dizimista, d.nome as nome_dizimista
         FROM usuarios u
         JOIN perfis p ON u.id_perfil = p.id_perfil
+        LEFT JOIN dizimistas d ON u.id_dizimista = d.id_dizimista
         WHERE u.status = 1
     """
     usuarios = db.execute(query).fetchall()
@@ -875,12 +877,19 @@ def create_usuario():
         return jsonify({'error': 'Login já em uso.'}), 400
         
     senha_hash = bcrypt.hashpw(data['senha'].encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-    cursor = db.execute("INSERT INTO usuarios (nome, login, senha_hash, id_perfil) VALUES (?, ?, ?, ?)",
-                        (data['nome'], login, senha_hash, data['id_perfil']))
+    id_dizimista = data.get('id_dizimista')
+    if id_dizimista == '': id_dizimista = None
+    
+    db.execute("INSERT INTO usuarios (nome, login, senha_hash, id_perfil, id_dizimista) VALUES (?, ?, ?, ?, ?)",
+               (data['nome'], login, senha_hash, data['id_perfil'], id_dizimista))
     db.commit()
-    user_id = data.get('current_user_id', 'sistema')
-    log_auditoria('usuarios', 0, 'INCLUSAO', user_id, dados_novos=data)
-    return jsonify({'message': 'Usuário criado com sucesso', 'id': 0}), 201
+    
+    # Capturar o real ID criado para a auditoria
+    new_id = fetch_scalar(db.execute("SELECT MAX(id_usuario) FROM usuarios"))
+    
+    current_user_login = data.get('current_user_id', 'sistema')
+    log_auditoria('usuarios', new_id, 'INCLUSAO', current_user_login, dados_novos=data)
+    return jsonify({'message': 'Usuário criado com sucesso', 'id': new_id}), 201
 
 @app.route('/api/usuarios/<int:id>', methods=['PUT', 'DELETE'])
 def gerenciar_usuario(id):
@@ -891,13 +900,16 @@ def gerenciar_usuario(id):
         return jsonify({'message': 'Removido com sucesso'})
     if request.method == 'PUT':
         data = request.json
+        id_dizimista = data.get('id_dizimista')
+        if id_dizimista == '': id_dizimista = None
+
         if 'senha' in data and data['senha']:
             senha_hash = bcrypt.hashpw(data['senha'].encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-            db.execute("UPDATE usuarios SET nome=?, id_perfil=?, senha_hash=? WHERE id_usuario=?", 
-                       (data['nome'], data['id_perfil'], senha_hash, id))
+            db.execute("UPDATE usuarios SET nome=?, id_perfil=?, senha_hash=?, id_dizimista=? WHERE id_usuario=?", 
+                       (data['nome'], data['id_perfil'], senha_hash, id_dizimista, id))
         else:
-            db.execute("UPDATE usuarios SET nome=?, id_perfil=? WHERE id_usuario=?", 
-                       (data['nome'], data['id_perfil'], id))
+            db.execute("UPDATE usuarios SET nome=?, id_perfil=?, id_dizimista=? WHERE id_usuario=?", 
+                       (data['nome'], data['id_perfil'], id_dizimista, id))
         db.commit()
         return jsonify({'message': 'Atualizado com sucesso'})
 

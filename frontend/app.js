@@ -2544,28 +2544,35 @@ const app = {
             const q = input.value.trim();
             if (q.length < 2) {
                 results.style.display = 'none';
+                hiddenId.value = ''; // Limpa o ID se o usuário apagar a busca
                 return;
             }
 
             try {
-                const res = await app.authFetch(`${API_URL}/dizimistas/busca?q=${encodeURIComponent(q)}`);
-                const data = await res.json();
-                results.innerHTML = '';
-                if (data.length > 0) {
-                    data.forEach(d => {
-                        const item = document.createElement('div');
-                        item.className = 'autocomplete-item';
-                        item.innerHTML = `<strong>${d.nome}</strong><small>CPF: ${d.cpf || '—'}</small>`;
-                        item.addEventListener('click', () => {
-                            input.value = d.nome;
-                            hiddenId.value = d.id_dizimista;
-                            results.style.display = 'none';
+                // Correção: Usa a rota padrão de busca paginada e trata o formato {data:[]}
+                const res = await app.authFetch(`${API_URL}/dizimistas?q=${encodeURIComponent(q)}&per_page=20`);
+                if (res.ok) {
+                    const responseJson = await res.json();
+                    const data = responseJson.data || []; // A API retorna { data: [...] }
+                    
+                    results.innerHTML = '';
+                    if (data.length > 0) {
+                        data.forEach(d => {
+                            const item = document.createElement('div');
+                            item.className = 'autocomplete-item';
+                            item.innerHTML = `<strong>${d.nome}</strong><small>CPF: ${d.cpf || '—'}</small>`;
+                            item.addEventListener('click', () => {
+                                input.value = d.nome;
+                                hiddenId.value = d.id_dizimista;
+                                results.style.display = 'none';
+                            });
+                            results.appendChild(item);
                         });
-                        results.appendChild(item);
-                    });
-                    results.style.display = 'block';
-                } else {
-                    results.style.display = 'none';
+                        results.style.display = 'block';
+                    } else {
+                        results.innerHTML = '<div class="autocomplete-item"><i>Nenhum dizimista encontrado</i></div>';
+                        results.style.display = 'block';
+                    }
                 }
             } catch (e) { }
         });
