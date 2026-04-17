@@ -560,23 +560,46 @@ def get_missas():
     db = get_db()
     user_id = request.headers.get('X-User-Id')
     user = db.execute("SELECT id_perfil, id_dizimista FROM usuarios WHERE id_usuario = ?", (user_id,)).fetchone()
-    
-    query = "SELECT * FROM missas WHERE status = 1"
+
+    # Parâmetros de filtro
+    data_de   = request.args.get('data_de', '')
+    data_ate  = request.args.get('data_ate', '')
+    tipo      = request.args.get('tipo', '')
+    celebrante = request.args.get('celebrante', '')
+    order_dir = 'ASC' if request.args.get('order', 'asc').lower() == 'asc' else 'DESC'
+
     params = []
 
     # Filter logic: if linked to a dizimista, see only masses with relevant pastorals
     if user and int(user['id_perfil']) != 1 and user['id_dizimista']:
-        query = """
+        base_query = """
             SELECT DISTINCT m.* FROM missas m
             JOIN missa_pastoral mp ON m.id_missa = mp.id_missa
             JOIN dizimista_pastoral dp ON mp.id_pastoral = dp.id_pastoral
             WHERE m.status = 1 AND dp.id_dizimista = ?
         """
         params = [user['id_dizimista']]
+    else:
+        base_query = "SELECT * FROM missas WHERE status = 1"
 
-    query += " ORDER BY data_missa DESC, hora"
-    missas_rows = db.execute(query, params).fetchall()
-    
+    # Aplicar filtros adicionais
+    if data_de:
+        base_query += " AND data_missa >= ?"
+        params.append(data_de)
+    if data_ate:
+        base_query += " AND data_missa <= ?"
+        params.append(data_ate)
+    if tipo:
+        base_query += " AND tipo = ?"
+        params.append(tipo)
+    if celebrante:
+        base_query += " AND UPPER(celebrante) LIKE UPPER(?)"
+        params.append(f'%{celebrante}%')
+
+    base_query += f" ORDER BY data_missa {order_dir}, hora"
+
+    missas_rows = db.execute(base_query, params).fetchall()
+
     missas = []
     for m in missas_rows:
         m_dict = dict(m)
@@ -593,15 +616,15 @@ def get_missas():
 
         # Calcular totais de vagas e preenchidas
         vagas_data = db.execute("""
-            SELECT 
+            SELECT
                 (SELECT SUM(quantidade_servos) FROM missa_pastoral WHERE id_missa = ?) as total,
                 (SELECT COUNT(*) FROM missa_servos WHERE id_missa = ? AND status = 1) as preenchidas
             FROM dual
         """, (id_m, id_m)).fetchone()
-        
+
         m_dict['total_vagas'] = int(vagas_data['total'] or 0)
         m_dict['preenchidas'] = int(vagas_data['preenchidas'] or 0)
-        
+
         missas.append(m_dict)
 
     return jsonify(missas)

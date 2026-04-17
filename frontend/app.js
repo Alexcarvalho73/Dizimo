@@ -1424,46 +1424,74 @@ const app = {
         return datas;
     },
 
-    async loadMissas() {
+    async loadMissas(filtros = {}) {
         try {
-            const res = await app.authFetch(`${API_URL}/missas`);
+            // Definir data padrão: 01 do mês corrente
+            const now = new Date();
+            const defaultDataDe = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+
+            const dataDe  = filtros.dataDe  || defaultDataDe;
+            const dataAte = filtros.dataAte || '';
+            const tipo    = filtros.tipo    || '';
+            const celebrante = filtros.celebrante || '';
+
+            // Montar URL com filtros
+            let url = `${API_URL}/missas?order=asc`;
+            if (dataDe)      url += `&data_de=${dataDe}`;
+            if (dataAte)     url += `&data_ate=${dataAte}`;
+            if (tipo)        url += `&tipo=${encodeURIComponent(tipo)}`;
+            if (celebrante)  url += `&celebrante=${encodeURIComponent(celebrante)}`;
+
+            const res = await app.authFetch(url);
             if (res.ok) {
-                const missas = await res.json();
+                let missas = await res.json();
+
+                // Garantir ordenação crescente por data no frontend (segurança extra)
+                missas.sort((a, b) => {
+                    const da = (a.data_missa || '').split('T')[0];
+                    const db = (b.data_missa || '').split('T')[0];
+                    if (da < db) return -1;
+                    if (da > db) return 1;
+                    // Mesmo dia: ordenar por hora
+                    return (a.hora || '').localeCompare(b.hora || '');
+                });
+
                 const tbody = document.getElementById('tb-missas');
                 if (!tbody) return;
                 tbody.innerHTML = '';
+
                 if (missas.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-muted);">Nenhuma missa cadastrada</td></tr>';
-                    return;
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding: 2rem;">Nenhuma missa encontrada para os filtros selecionados</td></tr>';
+                } else {
+                    missas.forEach(m => {
+                        const dataFmt = m.data_missa ? new Date(m.data_missa + 'T00:00').toLocaleDateString('pt-BR') : '-';
+
+                        // Status de Vagas
+                        let vagasStatus = `—`;
+                        if (m.total_vagas > 0) {
+                            const cor = m.preenchidas >= m.total_vagas ? 'var(--success-color)' : 'var(--error-color)';
+                            vagasStatus = `<strong style="color:${cor}">${m.preenchidas} / ${m.total_vagas}</strong>`;
+                        } else {
+                            vagasStatus = `<span style="color:var(--text-muted); font-size: 0.8rem;">(Sem req.)</span>`;
+                        }
+
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                                <td><strong>${dataFmt}</strong></td>
+                                <td>${m.hora || '-'}</td>
+                                <td>${m.comunidade || '-'}</td>
+                                <td>${m.celebrante || '-'}</td>
+                                <td><span class="badge badge-success">${m.tipo || '-'}</span></td>
+                                <td style="text-align:center;">${vagasStatus}</td>
+                                <td class="actions-cell">
+                                    <button class="btn-icon btn-toggle-servos" data-id="${m.id_missa}" title="Ver Escala de Servos"><i class="ph ph-plus-circle" style="color:var(--primary-color)"></i></button>
+                                    <button class="btn-icon btn-edit-missa" data-missa='${JSON.stringify(m)}' title="Editar"><i class="ph ph-pencil-simple"></i></button>
+                                    <button class="btn-icon btn-del-missa" data-id="${m.id_missa}" title="Excluir" style="color:var(--error-color)"><i class="ph ph-trash"></i></button>
+                                </td>
+                            `;
+                        tbody.appendChild(tr);
+                    });
                 }
-                missas.forEach(m => {
-                    const dataFmt = m.data_missa ? new Date(m.data_missa + 'T00:00').toLocaleDateString('pt-BR') : m.data_missa;
-
-                    // Status de Vagas
-                    let vagasStatus = `—`;
-                    if (m.total_vagas > 0) {
-                        const cor = m.preenchidas >= m.total_vagas ? 'var(--success-color)' : 'var(--error-color)';
-                        vagasStatus = `<strong style="color:${cor}">${m.preenchidas} / ${m.total_vagas}</strong>`;
-                    } else {
-                        vagasStatus = `<span style="color:var(--text-muted); font-size: 0.8rem;">(Sem req.)</span>`;
-                    }
-
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                            <td><strong>${dataFmt}</strong></td>
-                            <td>${m.hora || '-'}</td>
-                            <td>${m.comunidade || '-'}</td>
-                            <td>${m.celebrante || '-'}</td>
-                            <td><span class="badge badge-success">${m.tipo || '-'}</span></td>
-                            <td style="text-align:center;">${vagasStatus}</td>
-                            <td class="actions-cell">
-                                <button class="btn-icon btn-toggle-servos" data-id="${m.id_missa}" title="Ver Escala de Servos"><i class="ph ph-plus-circle" style="color:var(--primary-color)"></i></button>
-                                <button class="btn-icon btn-edit-missa" data-missa='${JSON.stringify(m)}' title="Editar"><i class="ph ph-pencil-simple"></i></button>
-                                <button class="btn-icon btn-del-missa" data-id="${m.id_missa}" title="Excluir" style="color:var(--error-color)"><i class="ph ph-trash"></i></button>
-                            </td>
-                        `;
-                    tbody.appendChild(tr);
-                });
 
                 document.querySelectorAll('.btn-edit-missa').forEach(btn => {
                     btn.addEventListener('click', (e) => {
@@ -1480,7 +1508,7 @@ const app = {
                             const delRes = await app.authFetch(`${API_URL}/missas/${id}`, { method: 'DELETE' });
                             if (delRes.ok) {
                                 this.showToast('Missa excluída!');
-                                this.loadMissas();
+                                this.loadMissas(filtros);
                             } else {
                                 await this.handleResponseError(delRes, 'Erro ao excluir');
                             }
@@ -1498,6 +1526,47 @@ const app = {
             }
         } catch (e) {
             this.showToast('Erro ao carregar missas', 'error');
+        }
+
+        // Configurar listeners dos botões de filtro (uma só vez por render)
+        const btnFiltrar = document.getElementById('btn-filtrar-missas');
+        const btnLimpar  = document.getElementById('btn-limpar-filtro-missas');
+
+        const now = new Date();
+        const defaultDataDe = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+
+        // Preencher data-de com o padrão se ainda estiver vazio
+        const inputDe = document.getElementById('filtro-missa-data-de');
+        if (inputDe && !inputDe.dataset.listenerAttached) {
+            if (!inputDe.value) inputDe.value = defaultDataDe;
+        }
+
+        if (btnFiltrar && !btnFiltrar.dataset.listenerAttached) {
+            btnFiltrar.addEventListener('click', () => {
+                const f = {
+                    dataDe:      document.getElementById('filtro-missa-data-de')?.value || '',
+                    dataAte:     document.getElementById('filtro-missa-data-ate')?.value || '',
+                    tipo:        document.getElementById('filtro-missa-tipo')?.value || '',
+                    celebrante:  document.getElementById('filtro-missa-celebrante')?.value || ''
+                };
+                this.loadMissas(f);
+            });
+            btnFiltrar.dataset.listenerAttached = 'true';
+        }
+
+        if (btnLimpar && !btnLimpar.dataset.listenerAttached) {
+            btnLimpar.addEventListener('click', () => {
+                const inputDe  = document.getElementById('filtro-missa-data-de');
+                const inputAte = document.getElementById('filtro-missa-data-ate');
+                const selTipo  = document.getElementById('filtro-missa-tipo');
+                const inpCel   = document.getElementById('filtro-missa-celebrante');
+                if (inputDe)  inputDe.value  = defaultDataDe;
+                if (inputAte) inputAte.value = '';
+                if (selTipo)  selTipo.value  = '';
+                if (inpCel)   inpCel.value   = '';
+                this.loadMissas();
+            });
+            btnLimpar.dataset.listenerAttached = 'true';
         }
     },
 

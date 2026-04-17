@@ -329,6 +329,42 @@
             <button class="btn btn-primary" onclick="app.navTo('missa-form')"><i class="ph ph-plus"></i> Nova
                 Missa</button>
         </div>
+
+        <!-- Filtros -->
+        <div class="filtros-bar glass-panel mt-4">
+            <div style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-end;">
+                <div class="input-group" style="flex: 1; min-width: 150px;">
+                    <label><i class="ph ph-calendar-blank"></i> Data De</label>
+                    <input type="date" id="filtro-missa-data-de">
+                </div>
+                <div class="input-group" style="flex: 1; min-width: 150px;">
+                    <label><i class="ph ph-calendar-check"></i> Data Até</label>
+                    <input type="date" id="filtro-missa-data-ate">
+                </div>
+                <div class="input-group" style="flex: 1; min-width: 160px;">
+                    <label><i class="ph ph-tag"></i> Tipo</label>
+                    <select id="filtro-missa-tipo">
+                        <option value="">Todos</option>
+                        <option value="Domingo">Domingo</option>
+                        <option value="Dia de semana">Dia de semana</option>
+                        <option value="Festa">Festa / Solenidade</option>
+                        <option value="Funeral">Funeral</option>
+                        <option value="Matrimônio">Matrimônio</option>
+                        <option value="Outro">Outro</option>
+                    </select>
+                </div>
+                <div class="input-group" style="flex: 1; min-width: 180px;">
+                    <label><i class="ph ph-user-circle"></i> Celebrante</label>
+                    <input type="text" id="filtro-missa-celebrante" placeholder="Nome do celebrante...">
+                </div>
+                <div class="input-group"
+                    style="justify-content: flex-end; flex-direction: row; align-items: flex-end; gap: 0.75rem;">
+                    <button class="btn btn-primary" id="btn-filtrar-missas"><i class="ph ph-funnel"></i> Filtrar</button>
+                    <button class="btn btn-secondary" id="btn-limpar-filtro-missas"><i class="ph ph-x"></i> Limpar</button>
+                </div>
+            </div>
+        </div>
+
         <div class="table-responsive mt-4 glass-panel">
             <table class="table">
                 <thead>
@@ -345,6 +381,7 @@
                 <tbody id="tb-missas"></tbody>
             </table>
         </div>
+        <div id="pagination-missas" class="pagination-footer mt-4"></div>
     </template>
 
     <template id="view-missa-form">
