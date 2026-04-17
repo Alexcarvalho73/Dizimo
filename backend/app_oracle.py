@@ -1139,8 +1139,8 @@ def get_missa_pastorais(id_missa):
 @requires_permission('Visualizar Lançamentos')
 def get_recebimentos():
     db = get_db()
-    mes = request.args.get('mes')
-    ano = request.args.get('ano')
+    data_ini = request.args.get('data_ini')
+    data_fim = request.args.get('data_fim')
     id_dizimista = request.args.get('id_dizimista')
     id_missa = request.args.get('id_missa')
     data_hoje = request.args.get('data_hoje')
@@ -1151,22 +1151,14 @@ def get_recebimentos():
     where_clauses = ["r.status = 1"]
     params = []
 
-    if mes and ano:
-        data_base = f"{ano}-{mes.zfill(2)}-01"
+    if data_ini:
         where_clauses.append("r.data_recebimento >= TO_DATE(?, 'YYYY-MM-DD')")
-        params.append(data_base)
-        where_clauses.append("r.data_recebimento < ADD_MONTHS(TO_DATE(?, 'YYYY-MM-DD'), 1)")
-        params.append(data_base)
-    elif ano:
-        data_base = f"{ano}-01-01"
-        where_clauses.append("r.data_recebimento >= TO_DATE(?, 'YYYY-MM-DD')")
-        params.append(data_base)
-        where_clauses.append("r.data_recebimento < ADD_MONTHS(TO_DATE(?, 'YYYY-MM-DD'), 12)")
-        params.append(data_base)
-    elif mes:
-        where_clauses.append("TO_CHAR(r.data_recebimento, 'MM') = ?")
-        params.append(mes.zfill(2))
-    elif data_hoje:
+        params.append(data_ini)
+    if data_fim:
+        where_clauses.append("r.data_recebimento <= TO_DATE(?, 'YYYY-MM-DD')")
+        params.append(data_fim)
+    
+    if not data_ini and not data_fim and data_hoje:
         hoje = datetime.now().strftime('%Y-%m-%d')
         where_clauses.append("r.data_recebimento >= TO_DATE(?, 'YYYY-MM-DD')")
         params.append(hoje)

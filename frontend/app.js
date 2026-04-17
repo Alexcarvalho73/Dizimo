@@ -300,9 +300,16 @@ const app = {
         if (viewId === 'novo-dizimista') this.setupNovoDizimista();
         if (viewId === 'recebimentos') {
             const now = new Date();
-            const mesAtual = String(now.getMonth() + 1).padStart(2, '0');
-            const anoAtual = String(now.getFullYear());
-            this.loadRecebimentosList(mesAtual, anoAtual);
+            const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+            const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+            
+            setTimeout(() => {
+                const inpIni = document.getElementById('filtro-data-ini');
+                const inpFim = document.getElementById('filtro-data-fim');
+                if (inpIni) inpIni.value = firstDay;
+                if (inpFim) inpFim.value = lastDay;
+                this.loadRecebimentosList(firstDay, lastDay);
+            }, 10);
         }
         if (viewId === 'lancar-recebimento') this.setupLancarRecebimento();
         if (viewId === 'missas') this.loadMissas();
@@ -2039,18 +2046,18 @@ const app = {
         setTimeout(() => t.remove(), 3000);
     },
 
-    async loadRecebimentosList(mes = '', ano = '', dizimista_id = '', page = 1, perPage = 10) {
+    async loadRecebimentosList(data_ini = '', data_fim = '', dizimista_id = '', page = 1, perPage = 10) {
         try {
             let url = `${API_URL}/recebimentos?page=${page}&per_page=${perPage}`;
-            if (mes) url += `&mes=${mes}`;
-            if (ano) url += `&ano=${ano}`;
+            if (data_ini) url += `&data_ini=${data_ini}`;
+            if (data_fim) url += `&data_fim=${data_fim}`;
             if (dizimista_id) url += `&id_dizimista=${dizimista_id}`;
 
-            // Pré-preencher os filtros visuais com os valores recebidos (apenas na carga inicial)
-            const filtroMes = document.getElementById('filtro-mes');
-            const filtroAno = document.getElementById('filtro-ano');
-            if (filtroMes && !filtroMes.value && mes) filtroMes.value = mes;
-            if (filtroAno && !filtroAno.value && ano) filtroAno.value = ano;
+            // Pré-preencher os filtros visuais apenas se vazios
+            const inpIni = document.getElementById('filtro-data-ini');
+            const inpFim = document.getElementById('filtro-data-fim');
+            if (inpIni && !inpIni.value && data_ini) inpIni.value = data_ini;
+            if (inpFim && !inpFim.value && data_fim) inpFim.value = data_fim;
 
             const selectFiltroDiz = document.getElementById('filtro-dizimista');
             if (selectFiltroDiz && selectFiltroDiz.options.length <= 1) {
@@ -2117,7 +2124,7 @@ const app = {
             });
 
             this.renderPagination('pagination-recebimentos', totalCount, page, perPage, (newPage, newPerPage) => {
-                this.loadRecebimentosList(mes, ano, dizimista_id, newPage, newPerPage);
+                this.loadRecebimentosList(data_ini, data_fim, dizimista_id, newPage, newPerPage);
             });
 
             document.querySelectorAll('.btn-estornar').forEach(btn => {
@@ -2128,8 +2135,8 @@ const app = {
                         if (res.ok) {
                             this.showToast('Estornado com sucesso');
                             this.loadRecebimentosList(
-                                document.getElementById('filtro-mes')?.value || '',
-                                document.getElementById('filtro-ano')?.value || '',
+                                document.getElementById('filtro-data-ini')?.value || '',
+                                document.getElementById('filtro-data-fim')?.value || '',
                                 document.getElementById('filtro-dizimista')?.value || '',
                                 page,
                                 perPage
@@ -2146,17 +2153,17 @@ const app = {
             const btnLimpar = document.getElementById('btn-limpar-filtro');
             if (btnFiltrar && !btnFiltrar.dataset.bound) {
                 btnFiltrar.addEventListener('click', () => {
-                    const m = document.getElementById('filtro-mes').value;
-                    const a = document.getElementById('filtro-ano').value;
+                    const ini = document.getElementById('filtro-data-ini').value;
+                    const fim = document.getElementById('filtro-data-fim').value;
                     const d = document.getElementById('filtro-dizimista') ? document.getElementById('filtro-dizimista').value : '';
-                    this.loadRecebimentosList(m, a, d, 1, perPage);
+                    this.loadRecebimentosList(ini, fim, d, 1, perPage);
                 });
                 btnFiltrar.dataset.bound = 'true';
             }
             if (btnLimpar && !btnLimpar.dataset.bound) {
                 btnLimpar.addEventListener('click', () => {
-                    document.getElementById('filtro-mes').value = '';
-                    document.getElementById('filtro-ano').value = '';
+                    document.getElementById('filtro-data-ini').value = '';
+                    document.getElementById('filtro-data-fim').value = '';
                     if (document.getElementById('filtro-dizimista')) {
                         document.getElementById('filtro-dizimista').value = '';
                     }
