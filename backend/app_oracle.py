@@ -811,6 +811,7 @@ def get_missas_hoje():
     return jsonify([dict(m) for m in missas_rows])
 
 @app.route('/api/perfis', methods=['GET', 'POST'])
+@requires_permission('Gerenciar Perfis')
 def handle_perfis():
     db = get_db()
     if request.method == 'GET':
@@ -824,6 +825,7 @@ def handle_perfis():
         return jsonify({'message': 'Perfil criado com sucesso', 'id': new_id}), 201
 
 @app.route('/api/perfis/<int:id>', methods=['PUT', 'DELETE'])
+@requires_permission('Gerenciar Perfis')
 def gerenciar_perfis(id):
     db = get_db()
     if request.method == 'DELETE':
@@ -842,12 +844,14 @@ def gerenciar_perfis(id):
         return jsonify({'message': 'Atualizado com sucesso'})
 
 @app.route('/api/permissoes', methods=['GET'])
+@requires_permission('Gerenciar Perfis')
 def get_permissoes():
     db = get_db()
     permissoes = db.execute("SELECT * FROM permissoes ORDER BY descricao").fetchall()
     return jsonify([dict(p) for p in permissoes])
 
 @app.route('/api/perfis/<int:id_perfil>/permissoes', methods=['GET', 'POST'])
+@requires_permission('Gerenciar Perfis')
 def handle_perfil_permissoes(id_perfil):
     db = get_db()
     if request.method == 'GET':
@@ -882,6 +886,7 @@ def get_usuarios():
     return jsonify([dict(u) for u in usuarios])
 
 @app.route('/api/usuarios', methods=['POST'])
+@requires_permission('Criar Usuários')
 def create_usuario():
     data = request.json
     db = get_db()
@@ -907,12 +912,16 @@ def create_usuario():
 
 @app.route('/api/usuarios/<int:id>', methods=['PUT', 'DELETE'])
 def gerenciar_usuario(id):
-    db = get_db()
     if request.method == 'DELETE':
+        if not check_permission_backend('Excluir Usuários'):
+             return jsonify({'error': 'Acesso Negado: Você não tem permissão para excluir usuários.'}), 403
+        db = get_db()
         db.execute("UPDATE usuarios SET status = 0 WHERE id_usuario = ?", (id,))
         db.commit()
         return jsonify({'message': 'Removido com sucesso'})
     if request.method == 'PUT':
+        if not check_permission_backend('Editar Usuários'):
+             return jsonify({'error': 'Acesso Negado: Você não tem permissão para editar usuários.'}), 403
         data = request.json
         id_dizimista = data.get('id_dizimista')
         if id_dizimista == '': id_dizimista = None
@@ -1155,7 +1164,7 @@ def get_recebimentos():
         where_clauses.append("r.data_recebimento >= TO_DATE(?, 'YYYY-MM-DD')")
         params.append(data_ini)
     if data_fim:
-        where_clauses.append("r.data_recebimento <= TO_DATE(?, 'YYYY-MM-DD')")
+        where_clauses.append("r.data_recebimento < TO_DATE(?, 'YYYY-MM-DD') + 1")
         params.append(data_fim)
     
     if not data_ini and not data_fim and data_hoje:

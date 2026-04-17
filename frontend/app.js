@@ -251,6 +251,26 @@ const app = {
 
     // Navigation Subsystem
     navTo(viewId) {
+        // Controle de Acesso no Frontend
+        const perms = this.state.user?.permissoes || [];
+        const isAdmin = this.state.user?.id_perfil == 1 || String(this.state.user?.id_perfil) === '1';
+
+        if (viewId === 'usuarios' && !perms.includes('Visualizar Usuários')) {
+            this.showToast('Acesso Negado: Você não tem permissão para visualizar usuários.', 'error');
+            this.navTo('dashboard');
+            return;
+        }
+        if (viewId === 'perfis' && !perms.includes('Gerenciar Perfis')) {
+            this.showToast('Acesso Negado: Gerenciamento de perfis restrito.', 'error');
+            this.navTo('dashboard');
+            return;
+        }
+        if (viewId === 'configuracoes' && !isAdmin) {
+            this.showToast('Acesso Negado: Configurações restritas ao administrador.', 'error');
+            this.navTo('dashboard');
+            return;
+        }
+
         this.state.currentView = viewId;
         const contentArea = document.getElementById('content-area');
         const tpl = document.getElementById(`view-${viewId}`);
