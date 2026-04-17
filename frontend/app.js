@@ -21,6 +21,14 @@ const app = {
         return fetch(url, { ...options, headers });
     },
 
+    hasPermission(name) {
+        if (!this.state.user) return false;
+        // Perfil 1 = Admin sempre tem permissão
+        if (parseInt(this.state.user.id_perfil) === 1) return true;
+        if (!this.state.user.permissoes) return false;
+        return this.state.user.permissoes.includes(name);
+    },
+
     async handleResponseError(res, defaultMsg) {
         let msg = defaultMsg || 'Ocorreu um erro inesperado';
         try {
@@ -2167,6 +2175,9 @@ const app = {
                 const pNome = p.nome || 'Sem Nome';
                 const pId = p.id_pastoral || '0';
 
+                const canEdit = this.hasPermission('Editar Pastorais');
+                const canDel = this.hasPermission('Excluir Pastorais');
+
                 card.innerHTML = `
                     <div class="pastoral-card-header" style="display:flex; justify-content:space-between; align-items:center; cursor:pointer; padding: 0.25rem 0;">
                         <div style="display:flex; align-items:center; gap:0.75rem;">
@@ -2175,15 +2186,19 @@ const app = {
                             <span class="badge badge-success pastoral-count-badge" style="font-size:0.75rem;">carregando...</span>
                         </div>
                         <div class="actions-cell" style="gap:0.5rem;">
-                            <button class="btn btn-secondary btn-sm btn-add-membro-pastoral" data-id="${pId}" data-nome="${pNome}" title="Adicionar Membro">
-                                <i class="ph ph-user-plus"></i> Membro
-                            </button>
-                            <button class="btn-icon btn-edit-pastoral" data-id="${p.id_pastoral}" title="Editar pastoral" style="color:var(--primary-color)">
-                                <i class="ph ph-pencil"></i>
-                            </button>
-                            <button class="btn-icon btn-del-pastoral" data-id="${p.id_pastoral}" title="Excluir pastoral" style="color:var(--error-color)">
-                                <i class="ph ph-trash"></i>
-                            </button>
+                            ${canEdit ? `
+                                <button class="btn btn-secondary btn-sm btn-add-membro-pastoral" data-id="${pId}" data-nome="${pNome}" title="Adicionar Membro">
+                                    <i class="ph ph-user-plus"></i> Membro
+                                </button>
+                                <button class="btn-icon btn-edit-pastoral" data-id="${p.id_pastoral}" title="Editar pastoral" style="color:var(--primary-color)">
+                                    <i class="ph ph-pencil"></i>
+                                </button>
+                            ` : ''}
+                            ${canDel ? `
+                                <button class="btn-icon btn-del-pastoral" data-id="${p.id_pastoral}" title="Excluir pastoral" style="color:var(--error-color)">
+                                    <i class="ph ph-trash"></i>
+                                </button>
+                            ` : ''}
                         </div>
                     </div>
                     <div class="pastoral-membros-container" style="display:none; margin-top:1rem; padding-top:1rem; border-top:1px dashed var(--border-color);">
@@ -2214,13 +2229,13 @@ const app = {
                 });
 
                 // Botão Editar
-                card.querySelector('.btn-edit-pastoral').addEventListener('click', () => this.editPastoral(p.id_pastoral));
+                card.querySelector('.btn-edit-pastoral')?.addEventListener('click', () => this.editPastoral(p.id_pastoral));
 
                 // Botão Excluir
-                card.querySelector('.btn-del-pastoral').addEventListener('click', () => this.deletePastoral(p.id_pastoral));
+                card.querySelector('.btn-del-pastoral')?.addEventListener('click', () => this.deletePastoral(p.id_pastoral));
 
                 // Botão Adicionar Membro
-                card.querySelector('.btn-add-membro-pastoral').addEventListener('click', () => {
+                card.querySelector('.btn-add-membro-pastoral')?.addEventListener('click', () => {
                     this.openAddMembroModal(p.id_pastoral, p.nome, card);
                 });
 
@@ -2277,6 +2292,8 @@ const app = {
                     : `<i class="ph ph-users"></i> ${titulo}`;
                 listDiv.appendChild(header);
 
+                const canEdit = this.hasPermission('Editar Pastorais');
+
                 lista.forEach(m => {
                     const row = document.createElement('div');
                     row.className = 'membro-row';
@@ -2285,30 +2302,32 @@ const app = {
                     row.innerHTML = `
                         <i class="ph ${isCoord ? 'ph-star' : 'ph-user'}" style="color:${isCoord ? '#f59e0b' : 'var(--primary-color)'}; font-size:1.1rem; flex-shrink:0;"></i>
                         <span style="flex:1; font-weight:${isCoord ? '600' : '400'};">${m.nome}</span>
-                        <label title="${isCoord ? 'Remover coordenador' : 'Promover a coordenador'}"
-                            style="display:flex; align-items:center; gap:0.35rem; font-size:0.8rem; cursor:pointer; color:var(--text-muted);">
-                            <input type="checkbox" class="chk-coordenador"
-                                data-diz-id="${m.id_dizimista}"
-                                data-pastoral-id="${idPastoral}"
-                                ${isCoord ? 'checked' : ''}
-                                style="width:auto; cursor:pointer; accent-color:#f59e0b;">
-                            Coord.
-                        </label>
-                        <button class="btn-icon btn-rm-membro" data-diz-id="${m.id_dizimista}" data-pastoral-id="${idPastoral}"
-                            title="Remover membro" style="color:var(--error-color); flex-shrink:0;">
-                            <i class="ph ph-x-circle"></i>
-                        </button>
+                        ${canEdit ? `
+                            <label title="${isCoord ? 'Remover coordenador' : 'Promover a coordenador'}"
+                                style="display:flex; align-items:center; gap:0.35rem; font-size:0.8rem; cursor:pointer; color:var(--text-muted);">
+                                <input type="checkbox" class="chk-coordenador"
+                                    data-diz-id="${m.id_dizimista}"
+                                    data-pastoral-id="${idPastoral}"
+                                    ${isCoord ? 'checked' : ''}
+                                    style="width:auto; cursor:pointer; accent-color:#f59e0b;">
+                                Coord.
+                            </label>
+                            <button class="btn-icon btn-rm-membro" data-diz-id="${m.id_dizimista}" data-pastoral-id="${idPastoral}"
+                                title="Remover membro" style="color:var(--error-color); flex-shrink:0;">
+                                <i class="ph ph-x-circle"></i>
+                            </button>
+                        ` : ''}
                     `;
 
                     // Checkbox alterar papel
-                    row.querySelector('.chk-coordenador').addEventListener('change', async (e) => {
+                    row.querySelector('.chk-coordenador')?.addEventListener('change', async (e) => {
                         const novoPapel = e.target.checked ? 'coordenador' : 'servo';
                         await this.alterarPapelMembro(idPastoral, m.id_dizimista, novoPapel);
                         await this._loadMembrosPastoral(idPastoral, card);
                     });
 
                     // Botão remover
-                    row.querySelector('.btn-rm-membro').addEventListener('click', async () => {
+                    row.querySelector('.btn-rm-membro')?.addEventListener('click', async () => {
                         await this.removerMembroPastoral(idPastoral, m.id_dizimista, m.nome);
                         await this._loadMembrosPastoral(idPastoral, card);
                         this._atualizarBadgeCount(idPastoral, card);

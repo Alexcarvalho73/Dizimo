@@ -90,7 +90,7 @@
                     </button>
                 </nav>
                 <div class="sidebar-footer">
-                    Versão <span id="app-version">2.11</span>
+                    Versão <span id="app-version">2.12</span>
                 </div>
             </aside>
             <main class="main-content">
@@ -106,7 +106,8 @@
                         <div class="profile-dropdown" id="profile-dropdown">
                             <button class="dropdown-item" id="btn-open-change-pass"><i class="ph ph-key"></i> Trocar
                                 Senha</button>
-                            <button class="dropdown-item" id="nav-configs" style="display: none;" onclick="app.navTo('configuracoes')">
+                            <button class="dropdown-item" id="nav-configs" style="display: none;"
+                                onclick="app.navTo('configuracoes')">
                                 <i class="ph ph-gear"></i> Configurações
                             </button>
                             <div class="dropdown-divider"></div>
@@ -156,7 +157,9 @@
                             class="ph ph-user-plus"></i> Novo Dizimista</button>
                     <button class="btn btn-primary" onclick="app.navTo('lancar-recebimento')"><i
                             class="ph ph-plus-circle"></i> Lançar Pagamento</button>
-                    <button class="btn btn-secondary" style="background:var(--primary-light); color:var(--primary-color); display:flex; align-items:center; gap:0.5rem; font-weight:600;" onclick="app.abrirModalCalculaOfertas()">
+                    <button class="btn btn-secondary"
+                        style="background:var(--primary-light); color:var(--primary-color); display:flex; align-items:center; gap:0.5rem; font-weight:600;"
+                        onclick="app.abrirModalCalculaOfertas()">
                         <i class="ph ph-calculator"></i> Calcula Ofertas
                     </button>
                 </div>
@@ -172,7 +175,8 @@
                                 <option value="">Todas as Missas de Hoje</option>
                             </select>
                         </div>
-                        <button id="btn-imprimir-resumo" class="btn btn-primary" style="display: none; padding: 0.5rem 1rem;" title="Imprimir Resumo da Missa">
+                        <button id="btn-imprimir-resumo" class="btn btn-primary"
+                            style="display: none; padding: 0.5rem 1rem;" title="Imprimir Resumo da Missa">
                             <i class="ph ph-printer"></i>
                         </button>
                     </div>
@@ -359,8 +363,10 @@
                 </div>
                 <div class="input-group"
                     style="justify-content: flex-end; flex-direction: row; align-items: flex-end; gap: 0.75rem;">
-                    <button class="btn btn-primary" id="btn-filtrar-missas"><i class="ph ph-funnel"></i> Filtrar</button>
-                    <button class="btn btn-secondary" id="btn-limpar-filtro-missas"><i class="ph ph-x"></i> Limpar</button>
+                    <button class="btn btn-primary" id="btn-filtrar-missas"><i class="ph ph-funnel"></i>
+                        Filtrar</button>
+                    <button class="btn btn-secondary" id="btn-limpar-filtro-missas"><i class="ph ph-x"></i>
+                        Limpar</button>
                 </div>
             </div>
         </div>
@@ -1022,23 +1028,51 @@
         <div class="modal-content" style="max-width: 650px;">
             <div class="modal-header no-print">
                 <h3><i class="ph ph-calculator"></i> Calcula Ofertas</h3>
-                <button type="button" class="btn-icon" onclick="document.getElementById('modal-calcula-ofertas').style.display='none'"><i class="ph ph-x"></i></button>
+                <button type="button" class="btn-icon"
+                    onclick="document.getElementById('modal-calcula-ofertas').style.display='none'"><i
+                        class="ph ph-x"></i></button>
             </div>
             <div class="modal-body" id="print-ofertas-area">
                 <style>
-                    .table-ofertas th, .table-ofertas td { text-align: right; padding: 0.25rem 0.5rem; border-bottom: 1px solid var(--border-color); font-size: 0.95rem; }
-                    .table-ofertas th:first-child, .table-ofertas td:first-child { text-align: left; }
-                    .table-ofertas th:nth-child(2), .table-ofertas td:nth-child(2) { text-align: center; }
-                    .input-qtde { width: 50px; text-align: center; border: 1px solid var(--border-color); border-radius: 4px; padding: 0.2rem; font-family: inherit; font-size: 0.95rem;}
+                    .table-ofertas th,
+                    .table-ofertas td {
+                        text-align: right;
+                        padding: 0.25rem 0.5rem;
+                        border-bottom: 1px solid var(--border-color);
+                        font-size: 0.95rem;
+                    }
+
+                    .table-ofertas th:first-child,
+                    .table-ofertas td:first-child {
+                        text-align: left;
+                    }
+
+                    .table-ofertas th:nth-child(2),
+                    .table-ofertas td:nth-child(2) {
+                        text-align: center;
+                    }
+
+                    .input-qtde {
+                        width: 50px;
+                        text-align: center;
+                        border: 1px solid var(--border-color);
+                        border-radius: 4px;
+                        padding: 0.2rem;
+                        font-family: inherit;
+                        font-size: 0.95rem;
+                    }
                 </style>
                 <div style="text-align: center; margin-bottom: 2rem; display: none;" class="print-only">
                     <h2 style="margin: 0; font-size: 1.4rem;" id="print-ofertas-paroquia">Paróquia</h2>
                     <h3 style="margin: 0; font-size: 1.1rem; color: #555;">Resumo de Ofertas</h3>
                 </div>
-                
-                <div class="ofertas-flex-container" style="display: flex; flex-wrap: wrap; gap: 1.5rem; justify-content: space-between;">
+
+                <div class="ofertas-flex-container"
+                    style="display: flex; flex-wrap: wrap; gap: 1.5rem; justify-content: space-between;">
                     <div style="flex: 1; min-width: 240px;">
-                        <h4 style="text-align:center; padding: 0.25rem; margin-bottom: 0.5rem; font-weight:600; color:var(--text-muted); background: var(--bg-main); border-radius: 4px;"><i class="ph ph-coins"></i> Moedas</h4>
+                        <h4
+                            style="text-align:center; padding: 0.25rem; margin-bottom: 0.5rem; font-weight:600; color:var(--text-muted); background: var(--bg-main); border-radius: 4px;">
+                            <i class="ph ph-coins"></i> Moedas</h4>
                         <table class="table-ofertas" style="width: 100%; border-collapse: collapse;">
                             <thead>
                                 <tr>
@@ -1053,7 +1087,9 @@
                         </table>
                     </div>
                     <div style="flex: 1; min-width: 240px;">
-                        <h4 style="text-align:center; padding: 0.25rem; margin-bottom: 0.5rem; font-weight:600; color:var(--text-muted); background: var(--bg-main); border-radius: 4px;"><i class="ph ph-money"></i> Cédulas</h4>
+                        <h4
+                            style="text-align:center; padding: 0.25rem; margin-bottom: 0.5rem; font-weight:600; color:var(--text-muted); background: var(--bg-main); border-radius: 4px;">
+                            <i class="ph ph-money"></i> Cédulas</h4>
                         <table class="table-ofertas" style="width: 100%; border-collapse: collapse;">
                             <thead>
                                 <tr>
@@ -1068,23 +1104,31 @@
                         </table>
                     </div>
                 </div>
-                <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 1.5rem; border-top: 2px solid var(--border-color); padding-top: 1rem;">
+                <div
+                    style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 1.5rem; border-top: 2px solid var(--border-color); padding-top: 1rem;">
                     <div class="input-group no-print" style="margin-bottom: 0;">
                         <label>Vincular à Missa:</label>
-                        <select id="oferta-missa-select" style="width: 100%; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color);">
+                        <select id="oferta-missa-select"
+                            style="width: 100%; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color);">
                             <option value="">Selecione a Missa...</option>
                         </select>
                     </div>
-                    <div style="text-align: right; display: flex; justify-content: flex-end; align-items: center; gap: 1rem;">
+                    <div
+                        style="text-align: right; display: flex; justify-content: flex-end; align-items: center; gap: 1rem;">
                         <span style="font-weight: bold; font-size: 1.1rem;">Total Geral:</span>
-                        <span id="total-geral-ofertas" style="font-weight: bold; font-size: 1.3rem; color: var(--primary-color);">R$ 0,00</span>
+                        <span id="total-geral-ofertas"
+                            style="font-weight: bold; font-size: 1.3rem; color: var(--primary-color);">R$ 0,00</span>
                     </div>
                 </div>
             </div>
-            <div class="modal-footer no-print" style="margin-top: 1.5rem; display: flex; justify-content: flex-end; gap: 1rem; padding: 0 1.5rem 1.5rem 1.5rem;">
-                <button type="button" class="btn btn-secondary" onclick="document.getElementById('modal-calcula-ofertas').style.display='none'">Fechar</button>
-                <button type="button" class="btn btn-primary" style="background:#059669" onclick="app.gravarOfertas()" id="btn-gravar-oferta"><i class="ph ph-floppy-disk"></i> Gravar Oferta</button>
-                <button type="button" class="btn btn-primary" onclick="app.imprimirCalculaOfertas()"><i class="ph ph-printer"></i> Imprimir</button>
+            <div class="modal-footer no-print"
+                style="margin-top: 1.5rem; display: flex; justify-content: flex-end; gap: 1rem; padding: 0 1.5rem 1.5rem 1.5rem;">
+                <button type="button" class="btn btn-secondary"
+                    onclick="document.getElementById('modal-calcula-ofertas').style.display='none'">Fechar</button>
+                <button type="button" class="btn btn-primary" style="background:#059669" onclick="app.gravarOfertas()"
+                    id="btn-gravar-oferta"><i class="ph ph-floppy-disk"></i> Gravar Oferta</button>
+                <button type="button" class="btn btn-primary" onclick="app.imprimirCalculaOfertas()"><i
+                        class="ph ph-printer"></i> Imprimir</button>
             </div>
         </div>
     </div>
@@ -1105,10 +1149,12 @@
                 <div class="input-group">
                     <label>Logotipo (Nome do Arquivo ou URL)</label>
                     <input type="text" id="cfg-paroquia-logo" placeholder="Ex: Logo.jpg ou https://...">
-                    <small style="color:var(--text-muted)">O arquivo deve estar na pasta /frontend ou ser um link acessível.</small>
+                    <small style="color:var(--text-muted)">O arquivo deve estar na pasta /frontend ou ser um link
+                        acessível.</small>
                 </div>
                 <div class="form-actions mt-4">
-                    <button type="submit" class="btn btn-primary"><i class="ph ph-floppy-disk"></i> Salvar Alterações</button>
+                    <button type="submit" class="btn btn-primary"><i class="ph ph-floppy-disk"></i> Salvar
+                        Alterações</button>
                 </div>
             </form>
         </div>
@@ -1118,9 +1164,11 @@
                 <i class="ph ph-whatsapp-logo" style="color: #25D366; font-size: 1.5rem;"></i> Integração ChatBot
             </h3>
             <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1.5rem;">
-                Acesse o painel de controle do WhatsApp para gerenciar fluxos de conversa, ver mensagens em tempo real e configurar o robô da paróquia.
+                Acesse o painel de controle do WhatsApp para gerenciar fluxos de conversa, ver mensagens em tempo real e
+                configurar o robô da paróquia.
             </p>
-            <button class="btn btn-secondary btn-block" onclick="app.abrirChatbot()" style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0;">
+            <button class="btn btn-secondary btn-block" onclick="app.abrirChatbot()"
+                style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0;">
                 <i class="ph ph-arrow-square-out"></i> Abrir Painel do WhatsApp (ChatBot)
             </button>
         </div>
