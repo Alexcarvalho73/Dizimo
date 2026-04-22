@@ -64,16 +64,16 @@
                     <button class="nav-item active" data-target="dashboard">
                         <i class="ph ph-squares-four"></i> Dashboard
                     </button>
-                    <button class="nav-item" data-target="dizimistas">
+                    <button class="nav-item" data-target="dizimistas" id="nav-dizimistas" style="display: none;">
                         <i class="ph ph-users"></i> Dizimistas
                     </button>
-                    <button class="nav-item" data-target="recebimentos" id="nav-recebimentos">
+                    <button class="nav-item" data-target="recebimentos" id="nav-recebimentos" style="display: none;">
                         <i class="ph ph-receipt"></i> Lançamentos
                     </button>
-                    <button class="nav-item" data-target="missas" id="nav-missas">
+                    <button class="nav-item" data-target="missas" id="nav-missas" style="display: none;">
                         <i class="ph ph-church"></i> Missas
                     </button>
-                    <button class="nav-item" data-target="pastorais" id="nav-pastorais">
+                    <button class="nav-item" data-target="pastorais" id="nav-pastorais" style="display: none;">
                         <i class="ph ph-users-three"></i> Pastorais
                     </button>
                     <button class="nav-item" data-target="usuarios" id="nav-usuarios" style="display: none;">
@@ -82,7 +82,7 @@
                     <button class="nav-item" data-target="perfis" id="nav-perfis" style="display: none;">
                         <i class="ph ph-shield-check"></i> Perfis & Permissões
                     </button>
-                    <button class="nav-item" data-target="relatorios" id="nav-relatorios">
+                    <button class="nav-item" data-target="relatorios" id="nav-relatorios" style="display: none;">
                         <i class="ph ph-file-text"></i> Relatórios
                     </button>
                     <button class="nav-item" data-target="logout">
@@ -253,6 +253,10 @@
                 <div class="input-group">
                     <label>Nome Completo*</label>
                     <input type="text" id="diz-nome" required>
+                </div>
+                <div class="input-group">
+                    <label>Apelido</label>
+                    <input type="text" id="diz-apelido" maxlength="20">
                 </div>
                 <div class="input-group">
                     <!--                    <label>CPF*</label>
@@ -702,6 +706,12 @@
                     <label>Perfil*</label>
                     <select id="usr-perfil" required>
                     </select>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="input-group" style="flex-direction: row; align-items: center; gap: 0.5rem; margin-top: 0.5rem;">
+                    <input type="checkbox" id="usr-trocar-senha" style="width: auto;">
+                    <label for="usr-trocar-senha" style="margin-bottom: 0; cursor: pointer;">Exigir troca de senha no próximo acesso?</label>
                 </div>
             </div>
             <div class="input-group mt-2">

@@ -52,7 +52,12 @@ const app = {
         if (savedUser) {
             this.state.user = JSON.parse(savedUser);
             this.renderMain();
-            this.navTo('dashboard');
+            if (this.state.user.trocar_senha == 1) {
+                this.navTo('dashboard'); // Need a view to render topbar etc
+                this.abrirModalSenha(true);
+            } else {
+                this.navTo('dashboard');
+            }
         } else {
             this.renderLogin();
         }
@@ -109,7 +114,12 @@ const app = {
                     this.state.user = data.user;
                     localStorage.setItem('dizimo_user', JSON.stringify(data.user));
                     this.renderMain();
-                    this.navTo('dashboard');
+                    if (data.user.trocar_senha == 1) {
+                        this.navTo('dashboard');
+                        this.abrirModalSenha(true);
+                    } else {
+                        this.navTo('dashboard');
+                    }
                 } else {
                     err.textContent = data.error || 'Erro no login.';
                 }
@@ -149,27 +159,38 @@ const app = {
         };
         overlay.addEventListener('click', closeSidebar);
 
-        // Hide/show restricted menus (Perfil 1 = Admin)
-        if (this.state.user && (this.state.user.id_perfil == 1 || String(this.state.user.id_perfil) === '1')) {
-            const btnConfigs = document.getElementById('nav-configs');
-            if (btnConfigs) btnConfigs.style.display = 'flex';
-        }
+        const isAdmin = this.state.user && (this.state.user.id_perfil == 1 || String(this.state.user.id_perfil) === '1');
+        const perms = this.state.user.permissoes || [];
 
-        if (this.state.user.permissoes) {
-            if (this.state.user.permissoes.includes('Visualizar Usuários')) document.getElementById('nav-usuarios').style.display = 'flex';
-            if (this.state.user.permissoes.includes('Gerenciar Perfis')) document.getElementById('nav-perfis').style.display = 'flex';
+        if (isAdmin) {
+            // Admin vê tudo
+            ['nav-configs', 'nav-dizimistas', 'nav-recebimentos', 'nav-missas', 'nav-pastorais', 'nav-usuarios', 'nav-perfis', 'nav-relatorios'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = 'flex';
+            });
+        } else {
+            // Controle baseado em permissões
+            if (perms.includes('Visualizar Dizimistas')) document.getElementById('nav-dizimistas').style.display = 'flex';
+            if (perms.includes('Visualizar Lançamentos')) document.getElementById('nav-recebimentos').style.display = 'flex';
+            if (perms.includes('Visualizar Missas')) {
+                document.getElementById('nav-missas').style.display = 'flex';
+                document.getElementById('nav-relatorios').style.display = 'flex';
+            }
+            if (perms.includes('Visualizar Pastorais')) document.getElementById('nav-pastorais').style.display = 'flex';
+            if (perms.includes('Visualizar Usuários')) document.getElementById('nav-usuarios').style.display = 'flex';
+            if (perms.includes('Gerenciar Perfis')) document.getElementById('nav-perfis').style.display = 'flex';
         }
 
         // Reaplicar configs pois o tpl-main acabou de ser injetado
         this.applyConfigs();
 
-        // Setup nav links
-        document.querySelectorAll('.nav-item').forEach(btn => {
+        // Setup nav links e dropdown items
+        document.querySelectorAll('.nav-item, .dropdown-item').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const target = e.currentTarget.getAttribute('data-target');
                 if (target === 'logout') {
                     this.logout();
-                } else {
+                } else if (target) {
                     this.navTo(target);
                     // Close sidebar automatically on mobile
                     closeSidebar();
@@ -189,23 +210,16 @@ const app = {
             if (profileDropdown) profileDropdown.classList.remove('active');
         });
 
-        // Setup Change Password
+        // Setup botões de abrir troca de senha
         const btnChangePass = document.getElementById('btn-open-change-pass');
         if (btnChangePass) {
-            btnChangePass.addEventListener('click', () => {
-                document.getElementById('modal-senha').style.display = 'flex';
-                document.getElementById('form-change-pass').reset();
-            });
+            btnChangePass.addEventListener('click', () => this.abrirModalSenha(false));
         }
 
-        // Setup dropdown logout
-        const logoutBtn = profileDropdown ? profileDropdown.querySelector('.dropdown-item[data-target="logout"]') : null;
-        if (logoutBtn) logoutBtn.addEventListener('click', () => this.logout());
-
-        // Setup Change Password Form
+        // Setup Form Troca de Senha - Usar onsubmit para evitar múltiplos listeners
         const changePassForm = document.getElementById('form-change-pass');
         if (changePassForm) {
-            changePassForm.addEventListener('submit', async (e) => {
+            changePassForm.onsubmit = async (e) => {
                 e.preventDefault();
                 const senhaAtual = document.getElementById('pass-atual').value;
                 const novaSenha = document.getElementById('pass-nova').value;
@@ -230,7 +244,13 @@ const app = {
                     if (res.ok) {
                         this.showToast('Senha alterada com sucesso!');
                         const modal = document.getElementById('modal-senha');
-                        if (modal) modal.style.display = 'none';
+                        if (modal) {
+                            modal.style.display = 'none';
+                            if (modal.dataset.obrigatorio === 'true') {
+                                this.state.user.trocar_senha = 0;
+                                localStorage.setItem('dizimo_user', JSON.stringify(this.state.user));
+                            }
+                        }
                         changePassForm.reset();
                     } else {
                         const err = await res.json();
@@ -239,28 +259,90 @@ const app = {
                 } catch (error) {
                     this.showToast('Erro de conexão', 'error');
                 }
-            });
+            };
+        }
+    },
+
+    validarCPF(cpf) {
+        if (!cpf) return true; // Permite vazio se não for obrigatório
+        cpf = cpf.replace(/[^\d]+/g, '');
+        if (cpf.length !== 11) return false;
+        
+        // Elimina CPFs invalidos conhecidos
+        if (/^(\d)\1+$/.test(cpf)) return false;
+
+        // Valida 1o digito
+        let add = 0;
+        for (let i = 0; i < 9; i++)
+            add += parseInt(cpf.charAt(i)) * (10 - i);
+        let rev = 11 - (add % 11);
+        if (rev === 10 || rev === 11) rev = 0;
+        if (rev !== parseInt(cpf.charAt(9))) return false;
+
+        // Valida 2o digito
+        add = 0;
+        for (let i = 0; i < 10; i++)
+            add += parseInt(cpf.charAt(i)) * (11 - i);
+        rev = 11 - (add % 11);
+        if (rev === 10 || rev === 11) rev = 0;
+        if (rev !== parseInt(cpf.charAt(10))) return false;
+
+        return true;
+    },
+
+    abrirModalSenha(obrigatorio = false) {
+        const modal = document.getElementById('modal-senha');
+        if (!modal) return;
+        
+        modal.dataset.obrigatorio = obrigatorio;
+        const btnFechar = modal.querySelector('.modal-header .btn-icon');
+        const btnCancelar = modal.querySelector('.form-actions .btn-secondary');
+        const form = document.getElementById('form-change-pass');
+        
+        if (form) form.reset();
+        
+        if (obrigatorio) {
+            if (btnFechar) btnFechar.style.display = 'none';
+            if (btnCancelar) {
+                btnCancelar.textContent = 'Sair (Logout)';
+                btnCancelar.onclick = () => this.logout();
+            }
+            modal.style.display = 'flex';
+            // Previne fechar no clique fora
+            modal.onmousedown = (e) => { if(e.target === modal) e.stopPropagation(); };
+        } else {
+            if (btnFechar) btnFechar.style.display = 'flex';
+            if (btnCancelar) {
+                btnCancelar.textContent = 'Cancelar';
+                btnCancelar.onclick = () => modal.style.display = 'none';
+            }
+            modal.style.display = 'flex';
+            modal.onmousedown = null;
         }
     },
 
     logout() {
         this.state.user = null;
         localStorage.removeItem('dizimo_user');
+        
+        // Esconde todos os modais abertos
+        document.querySelectorAll('.modal').forEach(m => m.style.display = 'none');
+
         this.renderLogin();
     },
 
     // Navigation Subsystem
-    navTo(viewId) {
+    navTo(viewId, params = null) {
         // Controle de Acesso no Frontend
         const perms = this.state.user?.permissoes || [];
         const isAdmin = this.state.user?.id_perfil == 1 || String(this.state.user?.id_perfil) === '1';
 
-        if (viewId === 'usuarios' && !perms.includes('Visualizar Usuários')) {
+        if (viewId === 'usuarios' && !isAdmin && !perms.includes('Visualizar Usuários')) {
             this.showToast('Acesso Negado: Você não tem permissão para visualizar usuários.', 'error');
             this.navTo('dashboard');
             return;
         }
-        if (viewId === 'perfis' && !perms.includes('Gerenciar Perfis')) {
+        if (viewId === 'perfis' && !isAdmin && !perms.includes('Gerenciar Perfis')) {
             this.showToast('Acesso Negado: Gerenciamento de perfis restrito.', 'error');
             this.navTo('dashboard');
             return;
@@ -287,10 +369,10 @@ const app = {
         });
 
         // Initialize view logic
-        this.initView(viewId);
+        this.initView(viewId, params);
     },
 
-    initView(viewId) {
+    initView(viewId, params = null) {
         /* Set Title */
         const titles = {
             'dashboard': 'Dashboard Principal',
@@ -317,7 +399,7 @@ const app = {
         /* Run logic based on view */
         if (viewId === 'dashboard') this.loadDashboard();
         if (viewId === 'dizimistas') this.loadDizimistas();
-        if (viewId === 'novo-dizimista') this.setupNovoDizimista();
+        if (viewId === 'novo-dizimista') this.setupNovoDizimista(params);
         if (viewId === 'recebimentos') {
             const now = new Date();
             const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
@@ -559,8 +641,7 @@ const app = {
                 document.querySelectorAll('.btn-edit-diz').forEach(btn => {
                     btn.addEventListener('click', (e) => {
                         const diz = JSON.parse(e.currentTarget.getAttribute('data-diz'));
-                        this.navTo('novo-dizimista');
-                        setTimeout(() => this.fillDizimistaForm(diz), 100);
+                        this.navTo('novo-dizimista', diz);
                     });
                 });
 
@@ -829,92 +910,159 @@ const app = {
         }
     },
 
-    setupNovoDizimista() {
+    setupNovoDizimista(diz = null) {
+        console.log('Iniciando setupNovoDizimista', diz);
         const form = document.getElementById('form-dizimista');
+        if (!form) {
+            console.error('Formulário form-dizimista não encontrado!');
+            return;
+        }
+
+        // Limpar listeners antigos clonando o form
         const newForm = form.cloneNode(true);
         form.parentNode.replaceChild(newForm, form);
 
-        document.getElementById('title-dizimista-form').textContent = 'Novo Dizimista';
-        document.getElementById('diz-id').value = '';
-        document.getElementById('diz-nome').value = '';
-        document.getElementById('diz-cpf').value = '';
-        document.getElementById('diz-tel').value = '';
-        document.getElementById('diz-email').value = '';
-        document.getElementById('diz-endereco').value = '';
-        document.getElementById('diz-bairro').value = '';
-        document.getElementById('diz-cidade').value = '';
-        document.getElementById('diz-cep').value = '';
-        document.getElementById('diz-nascimento').value = '';
-        document.getElementById('diz-valor').value = '';
-        document.getElementById('diz-observacoes').value = '';
+        const btnGravar = newForm.querySelector('button[type="submit"]');
+        const titleEl = document.getElementById('title-dizimista-form');
 
-        const cpfInput = document.getElementById('diz-cpf');
-        const cepInput = document.getElementById('diz-cep');
-        const endInput = document.getElementById('diz-endereco');
-        const bairroInput = document.getElementById('diz-bairro');
-        const cidadeInput = document.getElementById('diz-cidade');
+        // Se estiver editando, preencher formulário imediatamente
+        if (diz) {
+            this.fillDizimistaForm(diz, newForm); 
+            if (titleEl) titleEl.textContent = 'Editar Dizimista';
+            if (btnGravar) btnGravar.innerHTML = '<i class="ph ph-floppy-disk"></i> Gravar Alterações';
+        } else {
+            if (titleEl) titleEl.textContent = 'Novo Dizimista';
+            const idInput = newForm.querySelector('#diz-id');
+            if (idInput) idInput.value = '';
+            newForm.reset();
+            if (btnGravar) btnGravar.innerHTML = '<i class="ph ph-floppy-disk"></i> Salvar Cadastro';
+        }
 
-        // Máscara CPF
-        cpfInput.addEventListener('input', (e) => {
-            let val = e.target.value.replace(/\D/g, '');
-            if (val.length > 11) val = val.slice(0, 11);
-            if (val.length > 9) val = val.replace(/(\d{3})(\d{3})(\d{3})(\d{1,2})/, '$1.$2.$3-$4');
-            else if (val.length > 6) val = val.replace(/(\d{3})(\d{3})(\d{1,3})/, '$1.$2.$3');
-            else if (val.length > 3) val = val.replace(/(\d{3})(\d{1,3})/, '$1.$2');
-            e.target.value = val;
-        });
+        // Escutador único para o formulário
+        newForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            console.log('Formulário submetido');
+            const id = newForm.querySelector('#diz-id').value;
+            const data = {
+                nome: newForm.querySelector('#diz-nome').value,
+                apelido: newForm.querySelector('#diz-apelido').value,
+                cpf: newForm.querySelector('#diz-cpf').value,
+                telefone: newForm.querySelector('#diz-tel').value,
+                email: newForm.querySelector('#diz-email').value,
+                endereco: newForm.querySelector('#diz-endereco').value,
+                bairro: newForm.querySelector('#diz-bairro').value,
+                cidade: newForm.querySelector('#diz-cidade').value,
+                cep: newForm.querySelector('#diz-cep').value,
+                data_nascimento: newForm.querySelector('#diz-nascimento').value,
+                valor_dizimo: parseFloat(newForm.querySelector('#diz-valor').value) || 0,
+                observacoes: newForm.querySelector('#diz-observacoes').value,
+                user_id: this.state.user ? this.state.user.id_usuario : 'sistema'
+            };
 
-        // Máscara e Busca CEP
-        cepInput.addEventListener('input', (e) => {
-            let val = e.target.value.replace(/\D/g, '');
-            if (val.length > 8) val = val.slice(0, 8);
-            if (val.length > 5) val = val.replace(/(\d{5})(\d{1,3})/, '$1-$2');
-            e.target.value = val;
-        });
+            console.log('Dados para salvar:', data);
 
-        cepInput.addEventListener('blur', async () => {
-            const cep = cepInput.value.replace(/\D/g, '');
-            if (cep.length === 8) {
-                try {
-                    cepInput.disabled = true;
-                    this.showToast('Buscando endereço...');
-                    const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
-                    const data = await response.json();
-
-                    if (data.erro) {
-                        this.showToast('CEP não encontrado', 'error');
-                    } else {
-                        endInput.value = data.logradouro || '';
-                        bairroInput.value = data.bairro || '';
-                        cidadeInput.value = data.localidade || '';
-                        this.showToast('Endereço carregado!');
-                    }
-                } catch (e) {
-                    this.showToast('Erro ao buscar CEP', 'error');
-                } finally {
-                    cepInput.disabled = false;
-                }
-            }
-        });
-
-        // Vínculo com Pastorais
-        const pastoralListCont = document.getElementById('diz-pastorais-list');
-        const loadPastoralCheckboxes = async () => {
-            const pastorais = await this._getAllPastorais();
-            pastoralListCont.innerHTML = '';
-            if (pastorais.length === 0) {
-                pastoralListCont.innerHTML = '<span style="color: var(--text-muted); font-style: italic;">Nenhuma pastoral cadastrada.</span>';
+            // Validação de CPF
+            if (data.cpf && !this.validarCPF(data.cpf)) {
+                this.showToast('CPF Inválido. Por favor, verifique os dígitos.', 'error');
                 return;
             }
 
-            // Se for edição, buscar vínculos atuais
+            const method = id ? 'PUT' : 'POST';
+            const url = id ? `${API_URL}/dizimistas/${id}` : `${API_URL}/dizimistas`;
+
+            try {
+                this.showToast('Salvando...', 'info');
+                const res = await app.authFetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                console.log('Resposta do servidor:', res.status);
+
+                if (res.ok) {
+                    const resData = await res.json();
+                    const newId = id || resData.id;
+
+                    // Salvar vínculos pastorais
+                    const pastoralListCont = newForm.querySelector('#diz-pastorais-list');
+                    if (pastoralListCont) {
+                        const selectedPastorais = Array.from(pastoralListCont.querySelectorAll('input[type="checkbox"]:checked')).map(cb => parseInt(cb.value));
+                        await this.authFetch(`${API_URL}/dizimistas/${newId}/pastorais`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ pastorais: selectedPastorais })
+                        });
+                    }
+
+                    this.showToast(id ? 'Dizimista atualizado com sucesso!' : 'Dizimista cadastrado com sucesso!');
+                    this.navTo('dizimistas');
+                } else {
+                    const err = await res.json();
+                    this.showToast(err.error || 'Erro ao salvar', 'error');
+                }
+            } catch (error) {
+                console.error('Erro ao salvar:', error);
+                this.showToast('Erro de conexão', 'error');
+            }
+        });
+
+        // Configurar inputs no novo form
+        const cpfInput = newForm.querySelector('#diz-cpf');
+        const cepInput = newForm.querySelector('#diz-cep');
+
+        if (cpfInput) {
+            cpfInput.oninput = (e) => {
+                let val = e.target.value.replace(/\D/g, '');
+                if (val.length > 11) val = val.slice(0, 11);
+                if (val.length > 9) val = val.replace(/(\d{3})(\d{3})(\d{3})(\d{1,2})/, '$1.$2.$3-$4');
+                else if (val.length > 6) val = val.replace(/(\d{3})(\d{3})(\d{1,3})/, '$1.$2.$3');
+                else if (val.length > 3) val = val.replace(/(\d{3})(\d{1,3})/, '$1.$2');
+                e.target.value = val;
+            };
+        }
+
+        if (cepInput) {
+            cepInput.oninput = (e) => {
+                let val = e.target.value.replace(/\D/g, '');
+                if (val.length > 8) val = val.slice(0, 8);
+                if (val.length > 5) val = val.replace(/(\d{5})(\d{1,3})/, '$1-$2');
+                e.target.value = val;
+            };
+
+            cepInput.onblur = async () => {
+                const cep = cepInput.value.replace(/\D/g, '');
+                if (cep.length === 8) {
+                    try {
+                        cepInput.disabled = true;
+                        const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+                        const data = await response.json();
+                        if (!data.erro) {
+                            newForm.querySelector('#diz-endereco').value = data.logradouro || '';
+                            newForm.querySelector('#diz-bairro').value = data.bairro || '';
+                            newForm.querySelector('#diz-cidade').value = data.localidade || '';
+                        }
+                    } catch (e) {} finally { cepInput.disabled = false; }
+                }
+            };
+        }
+
+        // Vínculo com Pastorais
+        const loadPastoralCheckboxes = async () => {
+            const pastoralListCont = newForm.querySelector('#diz-pastorais-list');
+            if (!pastoralListCont) return;
+
+            const pastorais = await this._getAllPastorais();
+            pastoralListCont.innerHTML = 'Carregando...';
+            
             let vinculadas = [];
-            const dizId = document.getElementById('diz-id').value;
+            const dizId = newForm.querySelector('#diz-id').value;
             if (dizId) {
                 const resV = await this.authFetch(`${API_URL}/dizimistas/${dizId}/pastorais`);
                 if (resV.ok) vinculadas = await resV.json();
             }
 
+            pastoralListCont.innerHTML = '';
             pastorais.forEach(p => {
                 const item = document.createElement('label');
                 item.className = 'pastoral-checkbox-item';
@@ -926,78 +1074,32 @@ const app = {
             });
         };
         loadPastoralCheckboxes();
-
-        newForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const id = document.getElementById('diz-id').value;
-            const data = {
-                nome: document.getElementById('diz-nome').value,
-                cpf: document.getElementById('diz-cpf').value,
-                telefone: document.getElementById('diz-tel').value,
-                email: document.getElementById('diz-email').value,
-                endereco: document.getElementById('diz-endereco').value,
-                bairro: document.getElementById('diz-bairro').value,
-                cidade: document.getElementById('diz-cidade').value,
-                cep: document.getElementById('diz-cep').value,
-                data_nascimento: document.getElementById('diz-nascimento').value,
-                valor_dizimo: parseFloat(document.getElementById('diz-valor').value) || 0,
-                observacoes: document.getElementById('diz-observacoes').value,
-                user_id: this.state.user ? this.state.user.id_usuario : 'sistema'
-            };
-
-            const method = id ? 'PUT' : 'POST';
-            const url = id ? `${API_URL}/dizimistas/${id}` : `${API_URL}/dizimistas`;
-
-            try {
-                const res = await app.authFetch(url, {
-                    method: method,
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-                if (res.ok) {
-                    const resData = await res.json();
-                    const newId = id || resData.id;
-
-                    // Salvar vínculos pastorais
-                    const selectedPastorais = Array.from(pastoralListCont.querySelectorAll('input[type="checkbox"]:checked')).map(cb => parseInt(cb.value));
-                    await this.authFetch(`${API_URL}/dizimistas/${newId}/pastorais`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ pastorais: selectedPastorais })
-                    });
-
-                    this.showToast(id ? 'Dizimista atualizado com sucesso!' : 'Dizimista cadastrado com sucesso!');
-                    this.navTo('dizimistas');
-                } else {
-                    const err = await res.json();
-                    this.showToast(err.error || 'Erro ao salvar', 'error');
-                }
-            } catch (error) {
-                this.showToast('Erro de conexão', 'error');
-            }
-        });
     },
 
-    fillDizimistaForm(d) {
-        document.getElementById('title-dizimista-form').textContent = 'Editar Dizimista';
-        document.getElementById('diz-id').value = d.id_dizimista;
-        document.getElementById('diz-nome').value = d.nome || '';
-        document.getElementById('diz-cpf').value = d.cpf || '';
-        document.getElementById('diz-tel').value = d.telefone || '';
-        document.getElementById('diz-email').value = d.email || '';
-        document.getElementById('diz-endereco').value = d.endereco || '';
-        document.getElementById('diz-bairro').value = d.bairro || '';
-        document.getElementById('diz-cidade').value = d.cidade || '';
-        document.getElementById('diz-cep').value = d.cep || '';
-        // Format date YYYY-MM-DD for input date
+    fillDizimistaForm(d, container = document) {
+        const setVal = (id, val) => {
+            const el = container.querySelector('#' + id);
+            if (el) el.value = val || '';
+        };
+        setVal('diz-id', d.id_dizimista);
+        setVal('diz-nome', d.nome);
+        setVal('diz-apelido', d.apelido);
+        setVal('diz-cpf', d.cpf);
+        setVal('diz-tel', d.telefone);
+        setVal('diz-email', d.email);
+        setVal('diz-endereco', d.endereco);
+        setVal('diz-bairro', d.bairro);
+        setVal('diz-cidade', d.cidade);
+        setVal('diz-cep', d.cep);
+        
         let nasc = d.data_nascimento;
         if (nasc) {
             if (nasc.includes('T')) nasc = nasc.split('T')[0];
             if (nasc.includes(' ')) nasc = nasc.split(' ')[0];
         }
-        document.getElementById('diz-nascimento').value = nasc || '';
-        document.getElementById('diz-valor').value = d.valor_dizimo || '';
-        document.getElementById('diz-observacoes').value = d.observacoes || '';
+        setVal('diz-nascimento', nasc);
+        setVal('diz-valor', d.valor_dizimo);
+        setVal('diz-observacoes', d.observacoes);
     },
 
     async setupLancarRecebimento() {
@@ -1857,6 +1959,7 @@ const app = {
                 id_perfil: document.getElementById('usr-perfil').value,
                 senha: document.getElementById('usr-senha').value,
                 id_dizimista: document.getElementById('usr-dizimista-id').value || null,
+                trocar_senha: document.getElementById('usr-trocar-senha').checked,
                 current_user_id: this.state.user.login
             };
 
@@ -1903,6 +2006,7 @@ const app = {
         };
         setProfile();
         document.getElementById('usr-senha').required = false;
+        document.getElementById('usr-trocar-senha').checked = u.trocar_senha == 1;
     },
 
     async setupPerfilForm() {

@@ -371,7 +371,8 @@ def login():
                 'nome': user['nome'],
                 'login': user['login'],
                 'id_perfil': user['id_perfil'],
-                'permissoes': permissoes
+                'permissoes': permissoes,
+                'trocar_senha': user.get('trocar_senha', 0)
             }
         })
     else:
@@ -397,10 +398,11 @@ def change_password():
         return jsonify({'error': 'Senha atual incorreta.'}), 401
         
     new_hash = bcrypt.hashpw(nova_senha.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-    db.execute("UPDATE usuarios SET senha_hash = ? WHERE id_usuario = ?", (new_hash, user_id))
+    db.execute("UPDATE usuarios SET senha_hash = ?, trocar_senha = 0 WHERE id_usuario = ?", (new_hash, user_id))
     db.commit()
     
-    log_auditoria(user_id, 'ALTERACAO', 'usuarios', user_id, f"Troca de senha do usuario {user['login']}")
+    log_auditoria('usuarios', user_id, 'ALTERACAO', user['login'], 
+                  dados_novos={'msg': f"Troca de senha do usuario {user['login']}"})
     
     return jsonify({'message': 'Senha alterada com sucesso!'})
 
@@ -480,9 +482,9 @@ def create_dizimista():
             pass
 
     cursor = db.execute("""
-        INSERT INTO dizimistas (nome, cpf, telefone, email, endereco, bairro, cidade, cep, data_nascimento, valor_dizimo, observacoes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (data.get('nome'), cpf, data.get('telefone'), data.get('email'), 
+        INSERT INTO dizimistas (nome, apelido, cpf, telefone, email, endereco, bairro, cidade, cep, data_nascimento, valor_dizimo, observacoes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (data.get('nome'), data.get('apelido'), cpf, data.get('telefone'), data.get('email'), 
           data.get('endereco'), data.get('bairro'), data.get('cidade'), data.get('cep'), nasc_dt, 
           data.get('valor_dizimo', 0), data.get('observacoes')))
     db.commit()
@@ -534,9 +536,9 @@ def manage_dizimista(id):
 
         db.execute("""
             UPDATE dizimistas 
-            SET nome=?, cpf=?, telefone=?, email=?, endereco=?, bairro=?, cidade=?, cep=?, observacoes=?, fonetica=?, data_nascimento=?, valor_dizimo=?
+            SET nome=?, apelido=?, cpf=?, telefone=?, email=?, endereco=?, bairro=?, cidade=?, cep=?, observacoes=?, fonetica=?, data_nascimento=?, valor_dizimo=?
             WHERE id_dizimista=?
-        """, (data.get('nome'), cpf, data.get('telefone'), data.get('email'), 
+        """, (data.get('nome'), data.get('apelido'), cpf, data.get('telefone'), data.get('email'), 
               data.get('endereco'), data.get('bairro'), data.get('cidade'), data.get('cep'), data.get('observacoes'), 
               fonetica_str, nasc_dt, data.get('valor_dizimo', 0), id))
         db.commit()
@@ -811,13 +813,18 @@ def get_missas_hoje():
     return jsonify([dict(m) for m in missas_rows])
 
 @app.route('/api/perfis', methods=['GET', 'POST'])
-@requires_permission('Gerenciar Perfis')
 def handle_perfis():
     db = get_db()
     if request.method == 'GET':
+        # Permitir GET para quem gerencia perfis OU usuários
+        if not check_permission_backend('Gerenciar Perfis') and not check_permission_backend('Visualizar Usuários'):
+            return jsonify({'error': 'Acesso Negado'}), 403
+            
         perfis = db.execute("SELECT * FROM perfis WHERE status = 1").fetchall()
         return jsonify([dict(p) for p in perfis])
     if request.method == 'POST':
+        if not check_permission_backend('Gerenciar Perfis'):
+            return jsonify({'error': 'Acesso Negado'}), 403
         data = request.json
         cursor = db.execute("INSERT INTO perfis (descricao) VALUES (?)", (data['descricao'],))
         new_id = fetch_scalar(db.execute("SELECT MAX(id_perfil) FROM perfis"))
@@ -876,7 +883,7 @@ def get_usuarios():
     db = get_db()
     query = """
         SELECT u.id_usuario, u.nome, u.login, u.status, u.data_criacao, p.descricao as perfil_nome, 
-               u.id_perfil, u.id_dizimista, d.nome as nome_dizimista
+               u.id_perfil, u.id_dizimista, d.nome as nome_dizimista, u.trocar_senha
         FROM usuarios u
         JOIN perfis p ON u.id_perfil = p.id_perfil
         LEFT JOIN dizimistas d ON u.id_dizimista = d.id_dizimista
@@ -888,53 +895,79 @@ def get_usuarios():
 @app.route('/api/usuarios', methods=['POST'])
 @requires_permission('Criar Usuários')
 def create_usuario():
-    data = request.json
-    db = get_db()
-    login = data.get('login')
-    
-    if db.execute("SELECT id_usuario FROM usuarios WHERE login = ?", (login,)).fetchone():
-        return jsonify({'error': 'Login já em uso.'}), 400
+    try:
+        data = request.json
+        db = get_db()
+        login = data.get('login')
         
-    senha_hash = bcrypt.hashpw(data['senha'].encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-    id_dizimista = data.get('id_dizimista')
-    if id_dizimista == '': id_dizimista = None
-    
-    db.execute("INSERT INTO usuarios (nome, login, senha_hash, id_perfil, id_dizimista) VALUES (?, ?, ?, ?, ?)",
-               (data['nome'], login, senha_hash, data['id_perfil'], id_dizimista))
-    db.commit()
-    
-    # Capturar o real ID criado para a auditoria
-    new_id = fetch_scalar(db.execute("SELECT MAX(id_usuario) FROM usuarios"))
-    
-    current_user_login = data.get('current_user_id', 'sistema')
-    log_auditoria('usuarios', new_id, 'INCLUSAO', current_user_login, dados_novos=data)
-    return jsonify({'message': 'Usuário criado com sucesso', 'id': new_id}), 201
+        print(f"[USER] Criando usuário: {login}")
+        
+        if db.execute("SELECT id_usuario FROM usuarios WHERE login = ?", (login,)).fetchone():
+            return jsonify({'error': 'Login já em uso.'}), 400
+            
+        senha_hash = bcrypt.hashpw(data['senha'].encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        id_dizimista = data.get('id_dizimista')
+        if id_dizimista == '' or id_dizimista == 'null': id_dizimista = None
+        
+        id_perfil = int(data.get('id_perfil', 0))
+        trocar_senha = 1 if data.get('trocar_senha') else 0
+        
+        db.execute("INSERT INTO usuarios (nome, login, senha_hash, id_perfil, id_dizimista, trocar_senha) VALUES (?, ?, ?, ?, ?, ?)",
+                   (data['nome'], login, senha_hash, id_perfil, id_dizimista, trocar_senha))
+        db.commit()
+        
+        new_id = fetch_scalar(db.execute("SELECT MAX(id_usuario) FROM usuarios"))
+        current_user_login = data.get('current_user_id', 'sistema')
+        log_auditoria('usuarios', new_id, 'INCLUSAO', current_user_login, dados_novos=data)
+        
+        return jsonify({'message': 'Usuário criado com sucesso', 'id': new_id}), 201
+    except Exception as e:
+        print(f"[USER] Erro ao criar: {e}")
+        return jsonify({'error': f'Erro ao criar usuário: {str(e)}'}), 500
 
 @app.route('/api/usuarios/<int:id>', methods=['PUT', 'DELETE'])
 def gerenciar_usuario(id):
-    if request.method == 'DELETE':
-        if not check_permission_backend('Excluir Usuários'):
-             return jsonify({'error': 'Acesso Negado: Você não tem permissão para excluir usuários.'}), 403
+    try:
         db = get_db()
-        db.execute("UPDATE usuarios SET status = 0 WHERE id_usuario = ?", (id,))
-        db.commit()
-        return jsonify({'message': 'Removido com sucesso'})
-    if request.method == 'PUT':
-        if not check_permission_backend('Editar Usuários'):
-             return jsonify({'error': 'Acesso Negado: Você não tem permissão para editar usuários.'}), 403
-        data = request.json
-        id_dizimista = data.get('id_dizimista')
-        if id_dizimista == '': id_dizimista = None
+        if request.method == 'DELETE':
+            if not check_permission_backend('Excluir Usuários'):
+                 return jsonify({'error': 'Acesso Negado: Você não tem permissão para excluir usuários.'}), 403
+            db.execute("UPDATE usuarios SET status = 0 WHERE id_usuario = ?", (id,))
+            db.commit()
+            return jsonify({'message': 'Removido com sucesso'})
+        
+        if request.method == 'PUT':
+            if not check_permission_backend('Editar Usuários'):
+                 return jsonify({'error': 'Acesso Negado: Você não tem permissão para editar usuários.'}), 403
+            
+            data = request.json
+            print(f"[USER] Editando usuário ID: {id}")
+            
+            id_dizimista = data.get('id_dizimista')
+            if id_dizimista == '' or id_dizimista == 'null': id_dizimista = None
+            
+            id_perfil = int(data.get('id_perfil', 0))
+            
+            # Buscar dados antigos para auditoria
+            dados_antigos = db.execute("SELECT * FROM usuarios WHERE id_usuario = ?", (id,)).fetchone()
+            trocar_senha = 1 if data.get('trocar_senha') else 0
 
-        if 'senha' in data and data['senha']:
-            senha_hash = bcrypt.hashpw(data['senha'].encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-            db.execute("UPDATE usuarios SET nome=?, id_perfil=?, senha_hash=?, id_dizimista=? WHERE id_usuario=?", 
-                       (data['nome'], data['id_perfil'], senha_hash, id_dizimista, id))
-        else:
-            db.execute("UPDATE usuarios SET nome=?, id_perfil=?, id_dizimista=? WHERE id_usuario=?", 
-                       (data['nome'], data['id_perfil'], id_dizimista, id))
-        db.commit()
-        return jsonify({'message': 'Atualizado com sucesso'})
+            if 'senha' in data and data['senha']:
+                senha_hash = bcrypt.hashpw(data['senha'].encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+                db.execute("UPDATE usuarios SET nome=?, id_perfil=?, senha_hash=?, id_dizimista=?, trocar_senha=? WHERE id_usuario=?", 
+                           (data['nome'], id_perfil, senha_hash, id_dizimista, trocar_senha, id))
+            else:
+                db.execute("UPDATE usuarios SET nome=?, id_perfil=?, id_dizimista=?, trocar_senha=? WHERE id_usuario=?", 
+                           (data['nome'], id_perfil, id_dizimista, trocar_senha, id))
+            
+            db.commit()
+            log_auditoria('usuarios', id, 'ALTERACAO', data.get('current_user_id', 'sistema'), 
+                          dados_anteriores=dict(dados_antigos) if dados_antigos else None, dados_novos=data)
+            
+            return jsonify({'message': 'Atualizado com sucesso'})
+    except Exception as e:
+        print(f"[USER] Erro ao gerenciar (ID {id}): {e}")
+        return jsonify({'error': f'Erro ao processar usuário: {str(e)}'}), 500
 
 # --- Tipos de Pagamento (RF06) ---
 @app.route('/api/tipos-pagamento', methods=['GET', 'POST'])
