@@ -1729,6 +1729,13 @@ const app = {
             });
             btnLimpar.dataset.listenerAttached = 'true';
         }
+
+        // Novo: Expandir/Recolher Tudo
+        const btnToggleAll = document.getElementById('btn-toggle-all-missas');
+        if (btnToggleAll && !btnToggleAll.dataset.listenerAttached) {
+            btnToggleAll.addEventListener('click', () => this.toggleAllMissas());
+            btnToggleAll.dataset.listenerAttached = 'true';
+        }
     },
 
     async setupMissaForm() {
@@ -2763,6 +2770,36 @@ const app = {
         document.addEventListener('click', (e) => {
             if (!container.contains(e.target)) results.style.display = 'none';
         });
+    },
+
+    async toggleAllMissas() {
+        const buttons = document.querySelectorAll('.btn-toggle-servos');
+        if (buttons.length === 0) return;
+
+        // Se todos estiverem abertos, vamos fechar todos. Caso contrário, abrimos os que faltam.
+        const allOpen = Array.from(buttons).every(btn => btn.querySelector('i').classList.contains('ph-minus-circle'));
+        
+        for (const btn of buttons) {
+            const row = btn.closest('tr');
+            const missaId = btn.getAttribute('data-id');
+            const isOpen = btn.querySelector('i').classList.contains('ph-minus-circle');
+
+            if (allOpen) {
+                if (isOpen) await this.toggleMissaServos(row, missaId);
+            } else {
+                if (!isOpen) await this.toggleMissaServos(row, missaId);
+            }
+        }
+        
+        // Atualiza o ícone do botão mestre
+        const masterBtnIcon = document.querySelector('#btn-toggle-all-missas i');
+        if (masterBtnIcon) {
+            if (allOpen) {
+                masterBtnIcon.classList.replace('ph-minus-circle', 'ph-plus-circle');
+            } else {
+                masterBtnIcon.classList.replace('ph-plus-circle', 'ph-minus-circle');
+            }
+        }
     },
 
     async toggleMissaServos(row, missaId) {

@@ -334,8 +334,14 @@
     <template id="view-missas">
         <div class="view-header">
             <h2><i class="ph ph-church"></i> Gestão de Missas</h2>
-            <button class="btn btn-primary" onclick="app.navTo('missa-form')"><i class="ph ph-plus"></i> Nova
-                Missa</button>
+            <div style="display: flex; gap: 0.75rem;">
+                <button class="btn btn-secondary" id="btn-toggle-all-missas" title="Abrir/Recolher Todas">
+                    <i class="ph ph-plus-circle"></i>
+                </button>
+                <button class="btn btn-primary" onclick="app.navTo('missa-form')">
+                    <i class="ph ph-plus"></i> Nova Missa
+                </button>
+            </div>
         </div>
 
         <!-- Filtros -->
