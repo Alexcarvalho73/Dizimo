@@ -1509,6 +1509,7 @@ const app = {
                         <td>${u.login}</td>
                         <td>${u.perfil_nome || '-'}</td>
                         <td style="font-size: 0.9rem; color: var(--text-muted);">${u.nome_dizimista || '-'}</td>
+                        <td style="font-size: 0.85rem;">${u.ultimo_login ? new Date(u.ultimo_login).toLocaleString('pt-BR') : '-'}</td>
                         <td><span class="badge ${u.status === 1 ? 'badge-success' : 'badge-danger'}">${u.status === 1 ? 'Ativo' : 'Inativo'}</span></td>
                         <td>
                             <button class="btn-icon btn-edit-usr" data-user='${JSON.stringify(u)}' title="Editar"><i class="ph ph-pencil-simple"></i></button>

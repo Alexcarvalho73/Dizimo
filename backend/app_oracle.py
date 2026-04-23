@@ -919,7 +919,7 @@ def get_usuarios():
     db = get_db()
     query = """
         SELECT u.id_usuario, u.nome, u.login, u.status, u.data_criacao, p.descricao as perfil_nome, 
-               u.id_perfil, u.id_dizimista, d.nome as nome_dizimista, u.trocar_senha
+               u.id_perfil, u.id_dizimista, d.nome as nome_dizimista, u.trocar_senha, u.ultimo_login
         FROM usuarios u
         JOIN perfis p ON u.id_perfil = p.id_perfil
         LEFT JOIN dizimistas d ON u.id_dizimista = d.id_dizimista
