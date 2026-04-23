@@ -2877,7 +2877,13 @@ const app = {
 
                     html += `
                         <div class="pastoral-servos-group">
-                            <h4><i class="ph ph-bookmark-simple"></i> ${req.pastoral_nome || 'Pastoral'} (${req.quantidade} vagas)</h4>
+                            <h4 style="display:flex; align-items:center; gap:0.5rem;">
+                                <i class="ph ph-bookmark-simple"></i> 
+                                ${req.pastoral_nome || 'Pastoral'} (${req.quantidade} vagas)
+                                <button class="btn-icon btn-add-vaga" onclick="app.incrementPastoralReq(${missaId}, ${req.id_pastoral})" title="Aumentar vagas para esta missa">
+                                    <i class="ph ph-plus-circle" style="color:var(--success-color); font-size:1.2rem;"></i>
+                                </button>
+                            </h4>
                             <div class="servos-slots-grid">
                     `;
 
@@ -2979,6 +2985,23 @@ const app = {
         if (res.ok) {
             this.renderMissaServos(missaId);
             this.showToast('Membro removido da escala');
+        }
+    },
+
+    async incrementPastoralReq(missaId, pastoralId) {
+        try {
+            const res = await this.authFetch(`${API_URL}/missas/${missaId}/pastorais/${pastoralId}/increment`, {
+                method: 'POST'
+            });
+            if (res.ok) {
+                this.renderMissaServos(missaId);
+                this.showToast('Vaga adicionada!');
+            } else {
+                const err = await res.json();
+                this.showToast(err.error || 'Erro ao aumentar vagas', 'error');
+            }
+        } catch (e) {
+            this.showToast('Erro de conexão', 'error');
         }
     },
 

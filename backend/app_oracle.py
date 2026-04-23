@@ -1414,6 +1414,25 @@ def relatorio_servos_missa():
 
     return jsonify(report_data)
 
+@app.route('/api/missas/<int:id_missa>/pastorais/<int:id_pastoral>/increment', methods=['POST'])
+@requires_permission('Editar Missas')
+def increment_missa_pastoral_vagas(id_missa, id_pastoral):
+    db = get_db()
+    try:
+        # Verifica se o registro existe
+        exists = db.execute("SELECT 1 FROM missa_pastoral WHERE id_missa = ? AND id_pastoral = ?", (id_missa, id_pastoral)).fetchone()
+        if not exists:
+            # Se não existir, cria com 2 (1 padrão + 1 incremento)
+            db.execute("INSERT INTO missa_pastoral (id_missa, id_pastoral, quantidade_servos) VALUES (?, ?, 2)", (id_missa, id_pastoral))
+        else:
+            # Incrementa a quantidade
+            db.execute("UPDATE missa_pastoral SET quantidade_servos = quantidade_servos + 1 WHERE id_missa = ? AND id_pastoral = ?", (id_missa, id_pastoral))
+        
+        db.commit()
+        return jsonify({'message': 'Quantidade de vagas aumentada com sucesso'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     with app.app_context():
         init_db()

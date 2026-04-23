@@ -1388,3 +1388,24 @@ input:focus, select:focus {
     }
     .glass-panel { background: white !important; border: none !important; box-shadow: none !important; }
 }
+
+/* Estilo para o botão de adicionar vaga na escala */
+.btn-add-vaga {
+    padding: 0.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.7;
+    transition: all 0.2s ease;
+}
+.btn-add-vaga i {
+    color: var(--success-color);
+    font-size: 1.3rem !important;
+}
+.btn-add-vaga:hover {
+    opacity: 1;
+    transform: scale(1.15);
+}
+.btn-add-vaga:active {
+    transform: scale(0.95);
+}
