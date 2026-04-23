@@ -1305,7 +1305,7 @@ def get_dashboard_info():
 # --- Relatórios ---
 
 @app.route('/api/relatorios/servos-missa', methods=['GET'])
-@requires_permission('Visualizar Missas')
+@requires_permission('[Relatórios] Escala de Servos')
 def relatorio_servos_missa():
     db = get_db()
     data_inicio = request.args.get('data_inicio')

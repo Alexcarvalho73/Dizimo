@@ -174,6 +174,8 @@ const app = {
             if (perms.includes('Visualizar Lançamentos')) document.getElementById('nav-recebimentos').style.display = 'flex';
             if (perms.includes('Visualizar Missas')) {
                 document.getElementById('nav-missas').style.display = 'flex';
+            }
+            if (perms.includes('[Relatórios] Escala de Servos')) {
                 document.getElementById('nav-relatorios').style.display = 'flex';
             }
             if (perms.includes('Visualizar Pastorais')) document.getElementById('nav-pastorais').style.display = 'flex';
