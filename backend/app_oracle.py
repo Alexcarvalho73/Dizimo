@@ -638,13 +638,25 @@ def get_missas():
         """, (id_m,)).fetchall()
         m_dict['pastorais'] = [dict(p) for p in p_reqs]
 
-        # Calcular totais de vagas e preenchidas
-        vagas_data = db.execute("""
-            SELECT
-                (SELECT SUM(quantidade_servos) FROM missa_pastoral WHERE id_missa = ?) as total,
-                (SELECT COUNT(*) FROM missa_servos WHERE id_missa = ? AND status = 1) as preenchidas
-            FROM dual
-        """, (id_m, id_m)).fetchone()
+        # Calcular totais de vagas e preenchidas (Filtrado por pastoral do usuário se não for Admin)
+        if user and int(user['id_perfil']) != 1 and user['id_dizimista']:
+            vagas_data = db.execute("""
+                SELECT
+                    (SELECT SUM(mp.quantidade_servos) FROM missa_pastoral mp 
+                     JOIN dizimista_pastoral dp ON mp.id_pastoral = dp.id_pastoral
+                     WHERE mp.id_missa = ? AND dp.id_dizimista = ?) as total,
+                    (SELECT COUNT(*) FROM missa_servos ms
+                     JOIN dizimista_pastoral dp ON ms.id_pastoral = dp.id_pastoral
+                     WHERE ms.id_missa = ? AND dp.id_dizimista = ? AND ms.status = 1) as preenchidas
+                FROM dual
+            """, (id_m, user['id_dizimista'], id_m, user['id_dizimista'])).fetchone()
+        else:
+            vagas_data = db.execute("""
+                SELECT
+                    (SELECT SUM(quantidade_servos) FROM missa_pastoral WHERE id_missa = ?) as total,
+                    (SELECT COUNT(*) FROM missa_servos WHERE id_missa = ? AND status = 1) as preenchidas
+                FROM dual
+            """, (id_m, id_m)).fetchone()
 
         m_dict['total_vagas'] = int(vagas_data['total'] or 0)
         m_dict['preenchidas'] = int(vagas_data['preenchidas'] or 0)
