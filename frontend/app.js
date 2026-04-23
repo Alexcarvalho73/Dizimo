@@ -2842,7 +2842,15 @@ const app = {
             if (!missa.pastorais || missa.pastorais.length === 0) {
                 html += '<p style="color:var(--text-muted); font-style:italic;">Nenhum requisito de pastoral definido para esta missa.</p>';
             } else {
+                const isAdmin = parseInt(this.state.user?.id_perfil) === 1;
+                const userPastorais = this.state.user?.pastorais || [];
+
                 missa.pastorais.forEach(req => {
+                    // Filtrar pastorais: Adm vê tudo, outros só onde participam
+                    if (!isAdmin && !userPastorais.includes(req.id_pastoral)) {
+                        return;
+                    }
+
                     const servsDestaPastoral = servos.filter(s => s.id_pastoral === req.id_pastoral);
 
                     html += `
@@ -2911,8 +2919,10 @@ const app = {
                     select.innerHTML = '<option value="">Nenhum membro vinculado a esta pastoral</option>';
                 } else {
                     select.innerHTML = '<option value="">Selecione um membro...</option>';
+                    const userDizId = this.state.user?.id_dizimista;
                     membros.forEach(m => {
-                        select.innerHTML += `<option value="${m.id_dizimista}">${m.nome}</option>`;
+                        const isUser = (userDizId && m.id_dizimista == userDizId);
+                        select.innerHTML += `<option value="${m.id_dizimista}" ${isUser ? 'selected' : ''}>${m.nome}</option>`;
                     });
                 }
             }

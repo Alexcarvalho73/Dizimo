@@ -364,6 +364,12 @@ def login():
         """, (user['id_perfil'],)).fetchall()
         permissoes = [row['descricao'] for row in permissoes_rows]
 
+        # Fetch user pastorals if linked to a dizimista
+        user_pastorals = []
+        if user.get('id_dizimista'):
+            rows = db.execute("SELECT id_pastoral FROM dizimista_pastoral WHERE id_dizimista = ?", (user['id_dizimista'],)).fetchall()
+            user_pastorals = [r['id_pastoral'] for r in rows]
+
         return jsonify({
             'message': 'Login realizado com sucesso',
             'user': {
@@ -371,6 +377,8 @@ def login():
                 'nome': user['nome'],
                 'login': user['login'],
                 'id_perfil': user['id_perfil'],
+                'id_dizimista': user.get('id_dizimista'),
+                'pastorais': user_pastorals,
                 'permissoes': permissoes,
                 'trocar_senha': user.get('trocar_senha', 0)
             }
