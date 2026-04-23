@@ -29,6 +29,26 @@ const app = {
         return this.state.user.permissoes.includes(name);
     },
 
+    checkSessionRefresh() {
+        if (!this.state.user || !this.state.user.ultimo_login) return;
+        const last = new Date(this.state.user.ultimo_login);
+        const now = new Date();
+        if (last.toDateString() !== now.toDateString()) {
+            this.refreshSession();
+        }
+    },
+
+    async refreshSession() {
+        try {
+            const res = await this.authFetch(`${API_URL}/auth/heartbeat`, { method: 'POST' });
+            if (res.ok) {
+                const data = await res.json();
+                this.state.user.ultimo_login = data.ultimo_login;
+                localStorage.setItem('dizimo_user', JSON.stringify(this.state.user));
+            }
+        } catch (e) { }
+    },
+
     async handleResponseError(res, defaultMsg) {
         let msg = defaultMsg || 'Ocorreu um erro inesperado';
         try {
@@ -135,6 +155,7 @@ const app = {
         this.container.appendChild(tpl);
 
         document.getElementById('header-user-name').textContent = this.state.user.nome;
+        this.checkSessionRefresh();
         const versionEl = document.getElementById('app-version');
         if (versionEl) versionEl.textContent = this.state.version;
 

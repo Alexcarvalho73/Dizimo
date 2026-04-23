@@ -370,6 +370,10 @@ def login():
             rows = db.execute("SELECT id_pastoral FROM dizimista_pastoral WHERE id_dizimista = ?", (user['id_dizimista'],)).fetchall()
             user_pastorals = [r['id_pastoral'] for r in rows]
 
+        # Atualizar ultimo login
+        db.execute("UPDATE usuarios SET ultimo_login = CURRENT_TIMESTAMP WHERE id_usuario = ?", (user['id_usuario'],))
+        db.commit()
+
         return jsonify({
             'message': 'Login realizado com sucesso',
             'user': {
@@ -380,7 +384,8 @@ def login():
                 'id_dizimista': user.get('id_dizimista'),
                 'pastorais': user_pastorals,
                 'permissoes': permissoes,
-                'trocar_senha': user.get('trocar_senha', 0)
+                'trocar_senha': user.get('trocar_senha', 0),
+                'ultimo_login': datetime.now().isoformat()
             }
         })
     else:
@@ -413,6 +418,17 @@ def change_password():
                   dados_novos={'msg': f"Troca de senha do usuario {user['login']}"})
     
     return jsonify({'message': 'Senha alterada com sucesso!'})
+
+@app.route('/api/auth/heartbeat', methods=['POST'])
+def auth_heartbeat():
+    user_id = request.headers.get('X-User-Id')
+    if not user_id:
+        return jsonify({'error': 'ID de usuário não fornecido.'}), 401
+    
+    db = get_db()
+    db.execute("UPDATE usuarios SET ultimo_login = CURRENT_TIMESTAMP WHERE id_usuario = ?", (user_id,))
+    db.commit()
+    return jsonify({'message': 'Sessão atualizada', 'ultimo_login': datetime.now().isoformat()})
 
 # --- Dizimistas Routes ---
 @app.route('/api/dizimistas', methods=['GET'])
