@@ -1591,13 +1591,23 @@ const app = {
         }
     },
 
-    _calcularProximasDatas(dataInicial, dataFinal, frequencia) {
+    _calcularProximasDatas(dataInicial, dataFinal, frequencia, diasSemana = []) {
         const datas = [];
         let atual = new Date(dataInicial + 'T12:00:00');
         const fim = new Date(dataFinal + 'T12:00:00');
 
         while (atual <= fim) {
-            datas.push(atual.toISOString().split('T')[0]);
+            const dataIso = atual.toISOString().split('T')[0];
+            
+            if (frequencia === 'diaria' && diasSemana.length > 0) {
+                const dia = atual.getDay(); // 0=Dom, 1=Seg, ..., 6=Sáb
+                if (diasSemana.includes(dia)) {
+                    datas.push(dataIso);
+                }
+            } else {
+                datas.push(dataIso);
+            }
+
             if (frequencia === 'diaria') {
                 atual.setDate(atual.getDate() + 1);
             } else if (frequencia === 'semanal') {
@@ -1857,6 +1867,19 @@ const app = {
             optRec.style.display = 'none';
             chkRec.addEventListener('change', () => {
                 optRec.style.display = chkRec.checked ? 'block' : 'none';
+                if (chkRec.checked && freqSelect) {
+                    const daysContainer = newForm.querySelector('#missa-dias-semana-container');
+                    if (daysContainer) daysContainer.style.display = freqSelect.value === 'diaria' ? 'block' : 'none';
+                }
+            });
+        }
+
+        if (freqSelect) {
+            freqSelect.addEventListener('change', () => {
+                const daysContainer = newForm.querySelector('#missa-dias-semana-container');
+                if (daysContainer) {
+                    daysContainer.style.display = freqSelect.value === 'diaria' ? 'block' : 'none';
+                }
             });
         }
 
@@ -1896,7 +1919,17 @@ const app = {
                     this.showToast('Informe a data inicial e final para a recorrência', 'error');
                     return;
                 }
-                datasParaSalvar = this._calcularProximasDatas(dtIni, dtFim, freq);
+                
+                let diasSemana = [];
+                if (freq === 'diaria') {
+                    diasSemana = Array.from(newForm.querySelectorAll('.missa-dia-chk:checked')).map(cb => parseInt(cb.value));
+                    if (diasSemana.length === 0) {
+                        this.showToast('Selecione pelo menos um dia da semana para a recorrência diária', 'warning');
+                        return;
+                    }
+                }
+
+                datasParaSalvar = this._calcularProximasDatas(dtIni, dtFim, freq, diasSemana);
             } else {
                 const dt = dataInput.value;
                 if (!dt) {
