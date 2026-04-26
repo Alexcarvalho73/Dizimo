@@ -3373,6 +3373,21 @@ const app = {
     },
 
     imprimirCalculaOfertas() {
+        const selectMissa = document.getElementById('oferta-missa-select');
+        if (!selectMissa || !selectMissa.value) {
+            alert('A seleção de missa é obrigatória para a impressão do relatório.');
+            return;
+        }
+
+        // Extrair o nome da comunidade da opção selecionada
+        const selectedText = selectMissa.options[selectMissa.selectedIndex].text;
+        const comunidade = selectedText.includes(' - ') ? selectedText.split(' - ')[1] : selectedText;
+        
+        const printComunidade = document.getElementById('print-ofertas-comunidade');
+        if (printComunidade) {
+            printComunidade.textContent = comunidade;
+        }
+
         document.body.classList.add('print-calcula-ofertas');
 
         // Garantir tamanho A4 para ofertas
