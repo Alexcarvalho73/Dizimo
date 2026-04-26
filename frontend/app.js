@@ -2404,6 +2404,10 @@ const app = {
                             <i class="ph ph-caret-right pastoral-toggle-icon" style="transition:transform 0.25s; color:var(--primary-color); font-size:1.1rem;"></i>
                             <span style="font-weight:600; font-size:1.05rem;">${pNome}</span>
                             <span class="badge badge-success pastoral-count-badge" style="font-size:0.75rem;">carregando...</span>
+                            ${p.autocadastro == 1
+                                ? `<span class="badge" style="background:rgba(34,197,94,0.15);color:#16a34a;font-size:0.72rem;border:1px solid rgba(34,197,94,0.3);"><i class="ph ph-check-circle"></i> Autocadastro</span>`
+                                : `<span class="badge" style="background:rgba(100,116,139,0.12);color:var(--text-muted);font-size:0.72rem;border:1px solid var(--border-color);"><i class="ph ph-x-circle"></i> Sem Autocadastro</span>`
+                            }
                         </div>
                         <div class="actions-cell" style="gap:0.5rem;">
                             ${canEdit ? `
@@ -2717,12 +2721,18 @@ const app = {
             idInput.value = this.state.editingPastoral.id_pastoral;
             nomeInput.value = this.state.editingPastoral.nome;
             document.getElementById('title-pastoral-form').textContent = 'Editar Pastoral';
+            // Inicializa o toggle com o valor do banco
+            const autocadastroVal = this.state.editingPastoral.autocadastro == 1 ? 1 : 0;
+            this.setAutocadastro(autocadastroVal);
             delete this.state.editingPastoral;
+        } else {
+            this.setAutocadastro(0); // Padrão: NÃO
         }
 
         form.onsubmit = async (e) => {
             e.preventDefault();
-            const payload = { nome: nomeInput.value };
+            const autocadastro = parseInt(document.getElementById('pastoral-autocadastro').value || '0');
+            const payload = { nome: nomeInput.value, autocadastro };
             const id = idInput.value;
             const method = id ? 'PUT' : 'POST';
             const url = id ? `${API_URL}/pastorais/${id}` : `${API_URL}/pastorais`;
@@ -2743,6 +2753,33 @@ const app = {
                 this.showToast('Erro de conexão', 'error');
             }
         };
+    },
+
+    setAutocadastro(val) {
+        const hidden = document.getElementById('pastoral-autocadastro');
+        const btnNao = document.getElementById('btn-autocadastro-nao');
+        const btnSim = document.getElementById('btn-autocadastro-sim');
+        if (!hidden || !btnNao || !btnSim) return;
+
+        hidden.value = val;
+
+        if (val == 1) {
+            // SIM ativo
+            btnSim.style.background = 'var(--success-color, #22c55e)';
+            btnSim.style.color = '#fff';
+            btnSim.style.borderColor = 'var(--success-color, #22c55e)';
+            btnNao.style.background = 'var(--bg-card)';
+            btnNao.style.color = 'var(--text-muted)';
+            btnNao.style.borderColor = 'var(--border-color)';
+        } else {
+            // NÃO ativo
+            btnNao.style.background = 'var(--primary-color)';
+            btnNao.style.color = '#fff';
+            btnNao.style.borderColor = 'var(--primary-color)';
+            btnSim.style.background = 'var(--bg-card)';
+            btnSim.style.color = 'var(--text-muted)';
+            btnSim.style.borderColor = 'var(--border-color)';
+        }
     },
 
     async editPastoral(id) {

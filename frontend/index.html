@@ -591,6 +591,29 @@
                 <label>Nome da Pastoral*</label>
                 <input type="text" id="pastoral-nome" required placeholder="Ex: Pastoral da Música">
             </div>
+            <div class="input-group" style="margin-top: 1.25rem;">
+                <label style="margin-bottom: 0.5rem; font-weight: 600;">Autocadastro</label>
+                <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+                    Permite que membros realizem seu próprio cadastro nesta pastoral via chatbot.
+                </p>
+                <div class="toggle-group" id="pastoral-autocadastro-group" style="display: flex; align-items: center; gap: 0;">
+                    <input type="hidden" id="pastoral-autocadastro" value="0">
+                    <button type="button" id="btn-autocadastro-nao"
+                        onclick="app.setAutocadastro(0)"
+                        style="padding: 0.5rem 1.25rem; border: 1.5px solid var(--border-color); border-right: none;
+                               border-radius: var(--radius-md) 0 0 var(--radius-md); background: var(--primary-color);
+                               color: #fff; font-weight: 600; font-size: 0.9rem; cursor: pointer; transition: all 0.2s;">
+                        <i class="ph ph-x-circle"></i> NÃO
+                    </button>
+                    <button type="button" id="btn-autocadastro-sim"
+                        onclick="app.setAutocadastro(1)"
+                        style="padding: 0.5rem 1.25rem; border: 1.5px solid var(--border-color);
+                               border-radius: 0 var(--radius-md) var(--radius-md) 0; background: var(--bg-card);
+                               color: var(--text-muted); font-weight: 600; font-size: 0.9rem; cursor: pointer; transition: all 0.2s;">
+                        <i class="ph ph-check-circle"></i> SIM
+                    </button>
+                </div>
+            </div>
             <div class="form-actions mt-4">
                 <button type="button" class="btn btn-secondary" onclick="app.navTo('pastorais')">Cancelar</button>
                 <button type="submit" class="btn btn-primary">Salvar Pastoral</button>

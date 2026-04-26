@@ -1059,7 +1059,8 @@ def get_pastorais():
 def create_pastoral():
     db = get_db()
     data = request.json
-    db.execute("INSERT INTO pastorais (nome) VALUES (?)", (data['nome'],))
+    autocadastro = 1 if data.get('autocadastro') in (1, True, '1', 'true') else 0
+    db.execute("INSERT INTO pastorais (nome, autocadastro) VALUES (?, ?)", (data['nome'], autocadastro))
     new_id = fetch_scalar(db.execute("SELECT MAX(id_pastoral) FROM pastorais"))
     db.commit()
     return jsonify({'message': 'Pastoral criada com sucesso', 'id': new_id}), 201
@@ -1073,7 +1074,8 @@ def update_pastoral(id):
         
     db = get_db()
     data = request.json
-    db.execute("UPDATE pastorais SET nome = ? WHERE id_pastoral = ?", (data['nome'], id))
+    autocadastro = 1 if data.get('autocadastro') in (1, True, '1', 'true') else 0
+    db.execute("UPDATE pastorais SET nome = ?, autocadastro = ? WHERE id_pastoral = ?", (data['nome'], autocadastro, id))
     db.commit()
     return jsonify({'message': 'Pastoral atualizada'})
 
