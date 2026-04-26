@@ -469,7 +469,8 @@ const app = {
                 list.forEach(m => {
                     const opt = document.createElement('option');
                     opt.value = m.id_missa;
-                    opt.textContent = `${m.hora} - ${m.comunidade || ''}`;
+                    const dataFmt = m.data_missa ? new Date(m.data_missa + 'T00:00').toLocaleDateString('pt-BR') : '';
+                    opt.textContent = `${m.hora} - ${m.comunidade || ''} - ${dataFmt}`;
                     mSelect.appendChild(opt);
                 });
 
@@ -3379,13 +3380,13 @@ const app = {
             return;
         }
 
-        // Extrair o nome da comunidade da opção selecionada
+        // Extrair o nome da comunidade e data da opção selecionada
         const selectedText = selectMissa.options[selectMissa.selectedIndex].text;
-        const comunidade = selectedText.includes(' - ') ? selectedText.split(' - ')[1] : selectedText;
+        const comunidadeEData = selectedText.includes(' - ') ? selectedText.split(' - ').slice(1).join(' - ') : selectedText;
         
         const printComunidade = document.getElementById('print-ofertas-comunidade');
         if (printComunidade) {
-            printComunidade.textContent = comunidade;
+            printComunidade.textContent = comunidadeEData;
         }
 
         document.body.classList.add('print-calcula-ofertas');
