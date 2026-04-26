@@ -603,9 +603,12 @@ const app = {
 
                     window.print();
 
-                    document.body.classList.remove('print-resumo-missa');
-                    const dynamicStyle = document.getElementById('print-page-style');
-                    if (dynamicStyle) dynamicStyle.remove();
+                    // Adia a remoção das classes para permitir que o mobile processe a prévia corretamente
+                    setTimeout(() => {
+                        document.body.classList.remove('print-resumo-missa');
+                        const dynamicStyle = document.getElementById('print-page-style');
+                        if (dynamicStyle) dynamicStyle.remove();
+                    }, 1000);
                 }, 300); // small delay to render
             } else {
                 this.handleResponseError(res, 'Erro ao carregar resumo');
@@ -3380,9 +3383,12 @@ const app = {
 
         window.print();
 
-        document.body.classList.remove('print-calcula-ofertas');
-        const dynamicStyle = document.getElementById('print-page-style');
-        if (dynamicStyle) dynamicStyle.remove();
+        // Adia a remoção das classes para permitir que o mobile processe a prévia corretamente
+        setTimeout(() => {
+            document.body.classList.remove('print-calcula-ofertas');
+            const dynamicStyle = document.getElementById('print-page-style');
+            if (dynamicStyle) dynamicStyle.remove();
+        }, 1000);
     },
 
     abrirChatbot() {
