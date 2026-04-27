@@ -638,7 +638,19 @@ def get_missas():
 
     base_query += f" ORDER BY data_missa {order_dir}, hora"
 
-    missas_rows = db.execute(base_query, params).fetchall()
+    # Paginação
+    page = int(request.args.get('page', 1))
+    per_page = int(request.args.get('per_page', 10))
+    offset = (page - 1) * per_page
+
+    # Query para contar total de registros com os filtros aplicados
+    count_query = f"SELECT COUNT(*) as total FROM ({base_query})"
+    total_res = db.execute(count_query, params).fetchone()
+    total = total_res['total'] if total_res else 0
+
+    # Query paginada
+    paginated_query = f"{base_query} OFFSET ? ROWS FETCH NEXT ? ROWS ONLY"
+    missas_rows = db.execute(paginated_query, params + [offset, per_page]).fetchall()
 
     missas = []
     for m in missas_rows:
@@ -679,7 +691,12 @@ def get_missas():
 
         missas.append(m_dict)
 
-    return jsonify(missas)
+    return jsonify({
+        'data': missas,
+        'total': total,
+        'page': page,
+        'per_page': per_page
+    })
 
 @app.route('/api/missas', methods=['POST'])
 @requires_permission('Criar Missas')
@@ -845,7 +862,7 @@ def get_missas_hoje():
         data_str = datetime.now().strftime('%Y-%m-%d')
     
     print(f"[API] Buscando missas para data: {data_str}")
-    missas_rows = db.execute("SELECT id_missa, hora, comunidade, celebrante FROM missas WHERE data_missa = ? AND status = 1 ORDER BY hora", (data_str,)).fetchall()
+    missas_rows = db.execute("SELECT id_missa, data_missa, hora, comunidade, celebrante FROM missas WHERE data_missa = ? AND status = 1 ORDER BY hora", (data_str,)).fetchall()
     return jsonify([dict(m) for m in missas_rows])
 
 @app.route('/api/perfis', methods=['GET', 'POST'])
@@ -1329,9 +1346,23 @@ def get_dashboard_info():
     mes = datetime.now().strftime('%m')
     ano = datetime.now().strftime('%Y')
     
-    # Totalizadores rápidos
-    total_dia = fetch_scalar(db.execute("SELECT SUM(valor) FROM recebimentos WHERE TRUNC(data_recebimento) = TO_DATE(?, 'YYYY-MM-DD') AND status = 1", (hoje,))) or 0
-    total_mes = fetch_scalar(db.execute("SELECT SUM(valor) FROM recebimentos WHERE TO_CHAR(data_recebimento, 'MM') = ? AND TO_CHAR(data_recebimento, 'YYYY') = ? AND status = 1", (mes, ano))) or 0
+    # Totalizadores rápidos usando intervalos para permitir uso de índices
+    total_dia = fetch_scalar(db.execute("""
+        SELECT SUM(valor) FROM recebimentos 
+        WHERE data_recebimento >= TO_DATE(?, 'YYYY-MM-DD') 
+        AND data_recebimento < TO_DATE(?, 'YYYY-MM-DD') + 1 
+        AND status = 1
+    """, (hoje, hoje))) or 0
+    
+    # Início e fim do mês
+    inicio_mes = f"{ano}-{mes}-01"
+    total_mes = fetch_scalar(db.execute("""
+        SELECT SUM(valor) FROM recebimentos 
+        WHERE data_recebimento >= TO_DATE(?, 'YYYY-MM-DD') 
+        AND data_recebimento < ADD_MONTHS(TO_DATE(?, 'YYYY-MM-DD'), 1)
+        AND status = 1
+    """, (inicio_mes, inicio_mes))) or 0
+    
     dizimistas_ativos = fetch_scalar(db.execute("SELECT COUNT(*) FROM dizimistas WHERE status = 1")) or 0
     
     return jsonify({

@@ -3,7 +3,7 @@ const API_URL = (window.location.hostname === 'localhost' || window.location.hos
     ? 'http://localhost:5000/api'
     : '/api';
 
-const APP_VERSION = '2.17';
+const APP_VERSION = '2.24';
 
 const app = {
     state: {
@@ -290,7 +290,7 @@ const app = {
         if (!cpf) return true; // Permite vazio se não for obrigatório
         cpf = cpf.replace(/[^\d]+/g, '');
         if (cpf.length !== 11) return false;
-        
+
         // Elimina CPFs invalidos conhecidos
         if (/^(\d)\1+$/.test(cpf)) return false;
 
@@ -316,14 +316,14 @@ const app = {
     abrirModalSenha(obrigatorio = false) {
         const modal = document.getElementById('modal-senha');
         if (!modal) return;
-        
+
         modal.dataset.obrigatorio = obrigatorio;
         const btnFechar = modal.querySelector('.modal-header .btn-icon');
         const btnCancelar = modal.querySelector('.form-actions .btn-secondary');
         const form = document.getElementById('form-change-pass');
-        
+
         if (form) form.reset();
-        
+
         if (obrigatorio) {
             if (btnFechar) btnFechar.style.display = 'none';
             if (btnCancelar) {
@@ -332,7 +332,7 @@ const app = {
             }
             modal.style.display = 'flex';
             // Previne fechar no clique fora
-            modal.onmousedown = (e) => { if(e.target === modal) e.stopPropagation(); };
+            modal.onmousedown = (e) => { if (e.target === modal) e.stopPropagation(); };
         } else {
             if (btnFechar) btnFechar.style.display = 'flex';
             if (btnCancelar) {
@@ -347,7 +347,7 @@ const app = {
     logout() {
         this.state.user = null;
         localStorage.removeItem('dizimo_user');
-        
+
         // Esconde todos os modais abertos
         document.querySelectorAll('.modal').forEach(m => m.style.display = 'none');
 
@@ -427,7 +427,7 @@ const app = {
             const now = new Date();
             const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
             const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
-            
+
             setTimeout(() => {
                 const inpIni = document.getElementById('filtro-data-ini');
                 const inpFim = document.getElementById('filtro-data-fim');
@@ -453,19 +453,27 @@ const app = {
 
     async loadDashboard(idMissa = '') {
         try {
-            const res = await app.authFetch(`${API_URL}/dashboard`);
-            if (res.ok) {
-                const data = await res.json();
+            // Dispara todas as requisições em paralelo para ganhar performance
+            const urlRec = `${API_URL}/recebimentos?data_hoje=1&per_page=50${idMissa ? `&id_missa=${idMissa}` : ''}`;
+
+            const [dashRes, missaRes, recRes] = await Promise.all([
+                app.authFetch(`${API_URL}/dashboard`),
+                app.authFetch(`${API_URL}/missas/hoje`),
+                app.authFetch(urlRec)
+            ]);
+
+            // 1. Processa Estatísticas
+            if (dashRes.ok) {
+                const data = await dashRes.json();
                 document.getElementById('stat-dia').textContent = `R$ ${data.total_dia.toFixed(2)}`;
                 document.getElementById('stat-mes').textContent = `R$ ${data.total_mes.toFixed(2)}`;
                 document.getElementById('stat-ativos').textContent = data.dizimistas_ativos;
             }
 
-            // Popular Missas de Hoje no Filtro do Dashboard
-            const mRes = await app.authFetch(`${API_URL}/missas/hoje`);
+            // 2. Processa Filtro de Missas
             const mSelect = document.getElementById('filtro-missa-dashboard');
-            if (mRes.ok && mSelect && mSelect.options.length <= 1) {
-                const list = await mRes.json();
+            if (missaRes.ok && mSelect && mSelect.options.length <= 1) {
+                const list = await missaRes.json();
                 list.forEach(m => {
                     const opt = document.createElement('option');
                     opt.value = m.id_missa;
@@ -475,14 +483,13 @@ const app = {
                 });
 
                 if (!mSelect.dataset.listenerAttached) {
-                    mSelect.addEventListener('change', (e) => {
-                        this.loadDashboard(e.target.value);
-                    });
+                    mSelect.addEventListener('change', (e) => this.loadDashboard(e.target.value));
                     mSelect.dataset.listenerAttached = 'true';
                 }
             }
+            if (mSelect) mSelect.value = idMissa;
 
-            // Controle do Botão de Imprimir Resumo
+            // 3. Controle do Botão de Imprimir
             const btnPrint = document.getElementById('btn-imprimir-resumo');
             if (btnPrint) {
                 if (idMissa) {
@@ -493,11 +500,7 @@ const app = {
                 }
             }
 
-            // Load today's payments
-            let url = `${API_URL}/recebimentos?data_hoje=1&per_page=50`;
-            if (idMissa) url += `&id_missa=${idMissa}`;
-
-            const recRes = await app.authFetch(url);
+            // 4. Processa Tabela de Recebimentos
             if (recRes.ok) {
                 const response = await recRes.json();
                 const recs = response.data || [];
@@ -594,23 +597,64 @@ const app = {
                     }
                 }
 
-                setTimeout(() => {
-                    document.body.classList.add('print-resumo-missa');
-                    // Injetar estilo dinâmico para tamanho A6
-                    const style = document.createElement('style');
-                    style.id = 'print-page-style';
-                    style.innerHTML = '@page { size: 105mm 148mm; margin: 5mm; }';
-                    document.head.appendChild(style);
+                setTimeout(async () => {
+                    const element = document.getElementById('print-resumo-card');
+                    const horaFmt = (data.hora || '').replace(/:/g, 'h');
+                    const fileName = `Resumo_Missa_${dateFmt.replace(/\//g, '-')}_${horaFmt}.pdf`;
 
-                    window.print();
+                    // Simplicidade absoluta para evitar PDF em branco
+                    element.style.display = 'block';
+                    element.style.width = '95mm';
 
-                    // Adia a remoção das classes para permitir que o mobile processe a prévia corretamente
-                    setTimeout(() => {
-                        document.body.classList.remove('print-resumo-missa');
-                        const dynamicStyle = document.getElementById('print-page-style');
-                        if (dynamicStyle) dynamicStyle.remove();
-                    }, 1000);
-                }, 300); // small delay to render
+                    const opt = {
+                        margin: 5,
+                        image: { type: 'jpeg', quality: 0.98 },
+                        html2canvas: {
+                            scale: 2,
+                            useCORS: true
+                        },
+                        jsPDF: { unit: 'mm', format: 'a6', orientation: 'portrait' }
+                    };
+
+                    try {
+                        // Delay para garantir pintura completa
+                        await new Promise(resolve => setTimeout(resolve, 800));
+
+                        const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+                        if (isMobile && navigator.share && navigator.canShare) {
+                            const blob = await html2pdf().set(opt).from(element).output('blob');
+                            const file = new File([blob], fileName, { type: 'application/pdf' });
+                            try {
+                                await navigator.share({
+                                    files: [file],
+                                    title: `Resumo Missa ${dateFmt}`,
+                                    text: `Resumo da missa realizada em ${dateFmt} às ${data.hora || ''}`
+                                });
+                                this.showToast('Compartilhamento aberto!');
+                            } catch (shareErr) {
+                                if (shareErr.name !== 'AbortError') throw shareErr;
+                            }
+                        } else {
+                            // Desktop: método direto
+                            await html2pdf().set(opt).from(element).save(fileName);
+
+                            const subjectStr = `Resumo Financeiro - Missa ${dateFmt} às ${data.hora || ''}`;
+                            const bodyStr = `Prezados,\n\nSegue em anexo o resumo financeiro da missa realizada em ${dateFmt} às ${data.hora || ''}.\n\nComunidade: ${data.comunidade || ''}\n\nAtenciosamente,`;
+                            const mailtoUrl = `mailto:paroquiadistritoguia@gmail.com?subject=${encodeURIComponent(subjectStr)}&body=${encodeURIComponent(bodyStr)}`;
+
+                            setTimeout(() => { window.location.href = mailtoUrl; }, 1200);
+                            this.showToast('PDF gerado. Agora anexe o arquivo ao e-mail.');
+                        }
+                    } catch (pdfError) {
+                        console.error('Erro ao gerar PDF:', pdfError);
+                        this.showToast('Erro ao processar PDF.', 'error');
+                        window.print();
+                    } finally {
+                        element.style.display = 'none';
+                        element.style.width = '';
+                    }
+                }, 500);
             } else {
                 this.handleResponseError(res, 'Erro ao carregar resumo');
             }
@@ -954,7 +998,7 @@ const app = {
 
         // Se estiver editando, preencher formulário imediatamente
         if (diz) {
-            this.fillDizimistaForm(diz, newForm); 
+            this.fillDizimistaForm(diz, newForm);
             if (titleEl) titleEl.textContent = 'Editar Dizimista';
             if (btnGravar) btnGravar.innerHTML = '<i class="ph ph-floppy-disk"></i> Gravar Alterações';
         } else {
@@ -1069,7 +1113,7 @@ const app = {
                             newForm.querySelector('#diz-bairro').value = data.bairro || '';
                             newForm.querySelector('#diz-cidade').value = data.localidade || '';
                         }
-                    } catch (e) {} finally { cepInput.disabled = false; }
+                    } catch (e) { } finally { cepInput.disabled = false; }
                 }
             };
         }
@@ -1081,7 +1125,7 @@ const app = {
 
             const pastorais = await this._getAllPastorais();
             pastoralListCont.innerHTML = 'Carregando...';
-            
+
             let vinculadas = [];
             const dizId = newForm.querySelector('#diz-id').value;
             if (dizId) {
@@ -1118,7 +1162,7 @@ const app = {
         setVal('diz-bairro', d.bairro);
         setVal('diz-cidade', d.cidade);
         setVal('diz-cep', d.cep);
-        
+
         let nasc = d.data_nascimento;
         if (nasc) {
             if (nasc.includes('T')) nasc = nasc.split('T')[0];
@@ -1602,7 +1646,7 @@ const app = {
 
         while (atual <= fim) {
             const dataIso = atual.toISOString().split('T')[0];
-            
+
             if (frequencia === 'diaria' && diasSemana.length > 0) {
                 const dia = atual.getDay(); // 0=Dom, 1=Seg, ..., 6=Sáb
                 if (diasSemana.includes(dia)) {
@@ -1623,7 +1667,7 @@ const app = {
         return datas;
     },
 
-    async loadMissas(filtros = {}) {
+    async loadMissas(filtros = {}, page = 1, perPage = 10) {
         try {
             // Definir data padrão: 01 do mês corrente
             const now = new Date();
@@ -1634,8 +1678,8 @@ const app = {
             const tipo = filtros.tipo || '';
             const celebrante = filtros.celebrante || '';
 
-            // Montar URL com filtros
-            let url = `${API_URL}/missas?order=asc`;
+            // Montar URL com filtros e paginação
+            let url = `${API_URL}/missas?order=asc&page=${page}&per_page=${perPage}`;
             if (dataDe) url += `&data_de=${dataDe}`;
             if (dataAte) url += `&data_ate=${dataAte}`;
             if (tipo) url += `&tipo=${encodeURIComponent(tipo)}`;
@@ -1643,17 +1687,9 @@ const app = {
 
             const res = await app.authFetch(url);
             if (res.ok) {
-                let missas = await res.json();
-
-                // Garantir ordenação crescente por data no frontend (segurança extra)
-                missas.sort((a, b) => {
-                    const da = (a.data_missa || '').split('T')[0];
-                    const db = (b.data_missa || '').split('T')[0];
-                    if (da < db) return -1;
-                    if (da > db) return 1;
-                    // Mesmo dia: ordenar por hora
-                    return (a.hora || '').localeCompare(b.hora || '');
-                });
+                const response = await res.json();
+                let missas = response.data || [];
+                const total = response.total || 0;
 
                 const tbody = document.getElementById('tb-missas');
                 if (!tbody) return;
@@ -1661,7 +1697,14 @@ const app = {
 
                 if (missas.length === 0) {
                     tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding: 2rem;">Nenhuma missa encontrada para os filtros selecionados</td></tr>';
+                    const pagCont = document.getElementById('pagination-missas');
+                    if (pagCont) pagCont.innerHTML = '';
                 } else {
+                    // Renderiza controles de paginação
+                    this.renderPagination('pagination-missas', total, page, perPage, (newPage, newPerPage) => {
+                        this.loadMissas(filtros, newPage, newPerPage);
+                    });
+
                     missas.forEach(m => {
                         const dataFmt = m.data_missa ? new Date(m.data_missa + 'T00:00').toLocaleDateString('pt-BR') : '-';
 
@@ -1748,7 +1791,7 @@ const app = {
                     tipo: document.getElementById('filtro-missa-tipo')?.value || '',
                     celebrante: document.getElementById('filtro-missa-celebrante')?.value || ''
                 };
-                this.loadMissas(f);
+                this.loadMissas(f, 1);
             });
             btnFiltrar.dataset.listenerAttached = 'true';
         }
@@ -1763,7 +1806,7 @@ const app = {
                 if (inputAte) inputAte.value = '';
                 if (selTipo) selTipo.value = '';
                 if (inpCel) inpCel.value = '';
-                this.loadMissas();
+                this.loadMissas({}, 1);
             });
             btnLimpar.dataset.listenerAttached = 'true';
         }
@@ -1923,7 +1966,7 @@ const app = {
                     this.showToast('Informe a data inicial e final para a recorrência', 'error');
                     return;
                 }
-                
+
                 let diasSemana = [];
                 if (freq === 'diaria') {
                     diasSemana = Array.from(newForm.querySelectorAll('.missa-dia-chk:checked')).map(cb => parseInt(cb.value));
@@ -2409,9 +2452,9 @@ const app = {
                             <span style="font-weight:600; font-size:1.05rem;">${pNome}</span>
                             <span class="badge badge-success pastoral-count-badge" style="font-size:0.75rem;">carregando...</span>
                             ${p.autocadastro == 1
-                                ? `<span class="badge" style="background:rgba(34,197,94,0.15);color:#16a34a;font-size:0.72rem;border:1px solid rgba(34,197,94,0.3);"><i class="ph ph-check-circle"></i> Autocadastro</span>`
-                                : `<span class="badge" style="background:rgba(100,116,139,0.12);color:var(--text-muted);font-size:0.72rem;border:1px solid var(--border-color);"><i class="ph ph-x-circle"></i> Sem Autocadastro</span>`
-                            }
+                        ? `<span class="badge" style="background:rgba(34,197,94,0.15);color:#16a34a;font-size:0.72rem;border:1px solid rgba(34,197,94,0.3);"><i class="ph ph-check-circle"></i> Autocadastro</span>`
+                        : `<span class="badge" style="background:rgba(100,116,139,0.12);color:var(--text-muted);font-size:0.72rem;border:1px solid var(--border-color);"><i class="ph ph-x-circle"></i> Sem Autocadastro</span>`
+                    }
                         </div>
                         <div class="actions-cell" style="gap:0.5rem;">
                             ${canEdit ? `
@@ -2876,7 +2919,7 @@ const app = {
 
         // Se todos estiverem abertos, vamos fechar todos. Caso contrário, abrimos os que faltam.
         const allOpen = Array.from(buttons).every(btn => btn.querySelector('i').classList.contains('ph-minus-circle'));
-        
+
         for (const btn of buttons) {
             const row = btn.closest('tr');
             const missaId = btn.getAttribute('data-id');
@@ -2888,7 +2931,7 @@ const app = {
                 if (!isOpen) await this.toggleMissaServos(row, missaId);
             }
         }
-        
+
         // Atualiza o ícone do botão mestre
         const masterBtnIcon = document.querySelector('#btn-toggle-all-missas i');
         if (masterBtnIcon) {
@@ -3373,38 +3416,79 @@ const app = {
         }
     },
 
-    imprimirCalculaOfertas() {
+    async imprimirCalculaOfertas() {
         const selectMissa = document.getElementById('oferta-missa-select');
         if (!selectMissa || !selectMissa.value) {
-            alert('A seleção de missa é obrigatória para a impressão do relatório.');
+            alert('A seleção de missa é obrigatória para a operação.');
             return;
         }
 
-        // Extrair o nome da comunidade e data da opção selecionada
         const selectedText = selectMissa.options[selectMissa.selectedIndex].text;
-        const comunidadeEData = selectedText.includes(' - ') ? selectedText.split(' - ').slice(1).join(' - ') : selectedText;
-        
+        const parts = selectedText.split(' - ');
+        // Pega tudo após o horário (ex: "Comunidade - 27/04/2026")
+        const comunidadeEData = parts.length > 1 ? parts.slice(1).join(' - ') : selectedText;
+        const fileName = `Calculo_Ofertas_${comunidadeEData.replace(/[\/\\?%*:|"<>]/g, '-')}.pdf`;
+
+        const area = document.getElementById('print-ofertas-area');
+        const headerPrint = area.querySelector('.print-only');
+
+        // Atualiza o texto do cabeçalho com a Comunidade e Data selecionadas
         const printComunidade = document.getElementById('print-ofertas-comunidade');
         if (printComunidade) {
             printComunidade.textContent = comunidadeEData;
         }
 
-        document.body.classList.add('print-calcula-ofertas');
+        try {
+            // Prepara área para captura
+            if (headerPrint) headerPrint.style.setProperty('display', 'block', 'important');
+            area.style.backgroundColor = 'white';
+            area.style.padding = '10mm'; // Margem interna para o PDF
 
-        // Garantir tamanho A4 para ofertas
-        const style = document.createElement('style');
-        style.id = 'print-page-style';
-        style.innerHTML = '@page { size: A4; margin: 15mm; }';
-        document.head.appendChild(style);
+            const opt = {
+                margin: 10,
+                filename: fileName,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
 
-        window.print();
+            this.showToast('Gerando relatório...');
 
-        // Adia a remoção das classes para permitir que o mobile processe a prévia corretamente
-        setTimeout(() => {
-            document.body.classList.remove('print-calcula-ofertas');
-            const dynamicStyle = document.getElementById('print-page-style');
-            if (dynamicStyle) dynamicStyle.remove();
-        }, 1000);
+            // Delay para renderização
+            await new Promise(resolve => setTimeout(resolve, 800));
+
+            const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+            if (isMobile && navigator.share && navigator.canShare) {
+                const blob = await html2pdf().set(opt).from(area).output('blob');
+                const file = new File([blob], fileName, { type: 'application/pdf' });
+                try {
+                    await navigator.share({
+                        files: [file],
+                        title: `Cálculo de Ofertas - ${comunidadeEData}`,
+                        text: `Segue o cálculo de ofertas referente a ${comunidadeEData}`
+                    });
+                } catch (shareErr) {
+                    if (shareErr.name !== 'AbortError') console.error(shareErr);
+                }
+            } else {
+                // Desktop: Save direto
+                await html2pdf().set(opt).from(area).save();
+
+                const subject = encodeURIComponent(`Cálculo de Ofertas - ${comunidadeEData}`);
+                const body = encodeURIComponent(`Prezados,\n\nSegue em anexo o relatório de cálculo de ofertas.\n\nMissa: ${comunidadeEData}\n\nAtenciosamente,`);
+                const mailtoUrl = `mailto:paroquiadistritoguia@gmail.com?subject=${subject}&body=${body}`;
+
+                setTimeout(() => { window.location.href = mailtoUrl; }, 1200);
+                this.showToast('PDF baixado. Abra seu e-mail para anexar.');
+            }
+        } catch (err) {
+            console.error('Erro PDF Ofertas:', err);
+            this.showToast('Erro ao gerar PDF', 'error');
+        } finally {
+            if (headerPrint) headerPrint.style.display = 'none';
+            area.style.padding = '';
+        }
     },
 
     abrirChatbot() {
