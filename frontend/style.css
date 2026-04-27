@@ -1319,11 +1319,18 @@ input:focus, select:focus {
 
 /* Print Rules */
 @media print {
-    body { background: white !important; margin: 0; padding: 0; }
+    html, body { background: white !important; margin: 0; padding: 0; height: auto !important; overflow: visible !important; }
     
     /* Global hides for printing any report */
-    .sidebar, .topbar, .no-print, .btn, .view-header, #toast-container, #app-container { 
+    /* Esconde elementos desnecessários na impressão */
+    .sidebar, .topbar, .no-print, .btn, .view-header, #toast-container { 
         display: none !important; 
+    }
+    
+    /* Esconde o container principal APENAS se estivermos imprimindo um dos cards externos (Resumo/Ofertas) */
+    body.print-resumo-missa #app-container,
+    body.print-calcula-ofertas #app-container {
+        display: none !important;
     }
     
     /* Hide ALL printable sections by default */
@@ -1381,12 +1388,19 @@ input:focus, select:focus {
     }
 
     /* Common layout fixes for print */
-    .layout { display: block !important; }
+    .layout, #app-container { 
+        display: block !important; 
+        height: auto !important;
+        min-height: 0 !important;
+        overflow: visible !important;
+    }
     .main-content, .content-area, .report-print-container {
         padding: 0 !important;
         margin: 0 !important;
         box-shadow: none !important;
         border: none !important;
+        height: auto !important;
+        overflow: visible !important;
     }
     .glass-panel { background: white !important; border: none !important; box-shadow: none !important; }
 }

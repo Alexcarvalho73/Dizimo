@@ -3227,6 +3227,54 @@ const app = {
         }
     },
 
+    async imprimirRelatorioServos() {
+        const container = document.getElementById('relatorio-servos-content');
+        if (!container) return;
+
+        // Nome do arquivo baseado no período
+        const start = this.state.relFilters?.start || 'inicio';
+        const end = this.state.relFilters?.end || 'fim';
+        const fileName = `Escala_Servos_${start.replace(/-/g, '')}_a_${end.replace(/-/g, '')}.pdf`;
+
+        // Para desktop, o window.print() agora funciona com o ajuste CSS
+        // Mas para mobile e para exportar PDF real, usamos html2pdf
+        const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+        if (isMobile) {
+            const opt = {
+                margin: [10, 10, 10, 10],
+                filename: fileName,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true, logging: false },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            this.showToast('Gerando PDF para compartilhar...');
+            
+            try {
+                const blob = await html2pdf().set(opt).from(container).output('blob');
+                const file = new File([blob], fileName, { type: 'application/pdf' });
+
+                if (navigator.share) {
+                    await navigator.share({
+                        files: [file],
+                        title: 'Relatório de Escala de Servos',
+                        text: 'Segue em anexo o relatório de escala de servos por missa.'
+                    });
+                } else {
+                    // Fallback para download simples
+                    html2pdf().set(opt).from(container).save();
+                }
+            } catch (err) {
+                console.error('Erro ao gerar PDF:', err);
+                this.showToast('Erro ao gerar PDF', 'error');
+            }
+        } else {
+            // No desktop, o print nativo é melhor para controle de impressora
+            window.print();
+        }
+    },
+
     setupConfiguracoes() {
         const form = document.getElementById('form-configuracoes');
         if (!form) return;

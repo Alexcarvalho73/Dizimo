@@ -505,12 +505,14 @@ def create_dizimista():
         except:
             pass
 
+    fonetica_str = generate_phonetics(data.get('nome', ''), db)
+
     cursor = db.execute("""
-        INSERT INTO dizimistas (nome, apelido, cpf, telefone, email, endereco, bairro, cidade, cep, data_nascimento, valor_dizimo, observacoes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO dizimistas (nome, apelido, cpf, telefone, email, endereco, bairro, cidade, cep, data_nascimento, valor_dizimo, observacoes, fonetica)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (data.get('nome'), data.get('apelido'), cpf, data.get('telefone'), data.get('email'), 
           data.get('endereco'), data.get('bairro'), data.get('cidade'), data.get('cep'), nasc_dt, 
-          data.get('valor_dizimo', 0), data.get('observacoes')))
+          data.get('valor_dizimo', 0), data.get('observacoes'), fonetica_str))
     db.commit()
     
     # Needs a real logged user for audit in production, using 'system' or passed user
@@ -1384,13 +1386,24 @@ def relatorio_servos_missa():
     if not data_inicio or not data_fim:
         return jsonify({'error': 'Datas de início e fim são obrigatórias.'}), 400
 
-    # 1. Buscar missas no período (usando comparação de string pois data_missa é VARCHAR2 em YYYY-MM-DD)
+    # 1. Buscar missas no período (usando relacionamento para filtrar missas que possuem escala)
+    # Usamos DISTINCT para evitar a duplicação mencionada pelo usuário devido ao JOIN com missa_pastoral
     query_missas = """
-        SELECT * FROM missas 
-        WHERE data_missa >= ? AND data_missa <= ?
-        ORDER BY data_missa ASC, hora ASC
+        SELECT DISTINCT m.* FROM missas m
+        JOIN missa_pastoral mp ON m.id_missa = mp.id_missa
+        WHERE m.data_missa >= ? AND m.data_missa <= ?
+        AND m.status = 1
     """
-    missas = db.execute(query_missas, (data_inicio, data_fim)).fetchall()
+    params_m = [data_inicio, data_fim]
+    
+    if pastorais_filtro:
+        p_ids = [int(x) for x in pastorais_filtro.split(',')]
+        placeholders = ','.join(['?'] * len(p_ids))
+        query_missas += f" AND mp.id_pastoral IN ({placeholders})"
+        params_m.extend(p_ids)
+        
+    query_missas += " ORDER BY m.data_missa ASC, m.hora ASC"
+    missas = db.execute(query_missas, tuple(params_m)).fetchall()
     
     report_data = []
 
